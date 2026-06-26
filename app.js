@@ -389,3 +389,443 @@
   updateExportBadge();
 
 })();
+
+
+/* ============================================
+   STICKER MAKER MODULE
+   ============================================ */
+(() => {
+  'use strict';
+
+  // --- DOM Refs ---
+  const tabSplitter        = document.getElementById('tabSplitter');
+  const tabSticker         = document.getElementById('tabSticker');
+  const mainSubtitle       = document.getElementById('mainSubtitle');
+  const uploadSection      = document.getElementById('uploadSection');
+  const editorSection      = document.getElementById('editorSection');
+  const stickerSection     = document.getElementById('stickerSection');
+  const stickerUploadZone  = document.getElementById('stickerUploadZone');
+  const stickerFileInput   = document.getElementById('stickerFileInput');
+  const stickerEditor      = document.getElementById('stickerEditor');
+  const stickerUploadSection = document.getElementById('stickerUploadSection');
+  const stickerImg         = document.getElementById('stickerImg');
+  const stickerFileName    = document.getElementById('stickerFileName');
+  const stickerImageSize   = document.getElementById('stickerImageSize');
+  const stickerChangeBtn   = document.getElementById('stickerChangeBtn');
+  const stickerRatioSelector = document.getElementById('stickerRatioSelector');
+  const stickerCreateBtn   = document.getElementById('stickerCreateBtn');
+  const stickerDownloadBtn = document.getElementById('stickerDownloadBtn');
+  const stickerResult      = document.getElementById('stickerResult');
+  const stickerCanvas      = document.getElementById('stickerCanvas');
+  const stickerFileSizeBadge = document.getElementById('stickerFileSizeBadge');
+  const cropBox            = document.getElementById('cropBox');
+  const cropSelection      = document.getElementById('cropSelection');
+  const cropMove           = document.getElementById('cropMove');
+  const cropContainer      = document.getElementById('stickerCropContainer');
+  const toast              = document.getElementById('toast');
+  const toastText          = document.getElementById('toastText');
+
+  const overlayTop    = cropBox.querySelector('.crop-box-overlay.top');
+  const overlayBottom = cropBox.querySelector('.crop-box-overlay.bottom');
+  const overlayLeft   = cropBox.querySelector('.crop-box-overlay.left');
+  const overlayRight  = cropBox.querySelector('.crop-box-overlay.right');
+
+  const stickerCtx = stickerCanvas.getContext('2d');
+
+  // --- State ---
+  let stickerSource = null;
+  let stickerRatio  = '1:1';   // 'free' or 'W:H'
+  let stickerBlob   = null;
+
+  // Crop box in % of container dimensions
+  let crop = { x: 0, y: 0, w: 100, h: 100 };
+
+  // Drag state
+  let drag = null; // { type: 'move'|handle, startX, startY, startCrop }
+
+  // --- Helpers ---
+  function showToast(msg) {
+    toastText.textContent = msg;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 2500);
+  }
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  // --- Tab Switching ---
+  const subtitles = {
+    splitter: 'Split your horizontal photo into two perfect panels for Instagram carousels',
+    sticker:  'Convert any photo into a WhatsApp sticker — 512\u00d7512 WebP, ready to send'
+  };
+
+  tabSplitter.addEventListener('click', () => switchTab('splitter'));
+  tabSticker.addEventListener('click',  () => switchTab('sticker'));
+
+  function switchTab(tool) {
+    tabSplitter.classList.toggle('active', tool === 'splitter');
+    tabSticker.classList.toggle('active',  tool === 'sticker');
+    mainSubtitle.textContent = subtitles[tool];
+
+    if (tool === 'splitter') {
+      stickerSection.classList.add('hidden');
+      uploadSection.style.display   = '';
+      editorSection.classList.remove('hidden'); // handled by splitter own logic
+      // actually splitter manages its own show/hide, just reveal the section
+      uploadSection.style.display   = '';
+    } else {
+      // Hide splitter
+      uploadSection.style.display   = 'none';
+      editorSection.classList.add('hidden');
+      stickerSection.classList.remove('hidden');
+    }
+  }
+
+  // --- File Loading ---
+  stickerUploadZone.addEventListener('click', () => stickerFileInput.click());
+  stickerUploadZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') stickerFileInput.click(); });
+  stickerFileInput.addEventListener('change', e => { if (e.target.files[0]) loadStickerFile(e.target.files[0]); });
+
+  stickerUploadZone.addEventListener('dragover', e => { e.preventDefault(); stickerUploadZone.classList.add('drag-over'); });
+  stickerUploadZone.addEventListener('dragleave', () => stickerUploadZone.classList.remove('drag-over'));
+  stickerUploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    stickerUploadZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) loadStickerFile(e.dataTransfer.files[0]);
+  });
+
+  function loadStickerFile(file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        stickerSource = img;
+        stickerImg.src = e.target.result;
+        stickerFileName.textContent = file.name;
+        stickerImageSize.textContent = `${img.naturalWidth} \u00d7 ${img.naturalHeight} px`;
+
+        stickerImg.onload = () => {
+          initCropBox();
+          stickerUploadSection.style.display = 'none';
+          stickerEditor.classList.remove('hidden');
+          stickerResult.classList.add('hidden');
+          stickerDownloadBtn.disabled = true;
+          stickerBlob = null;
+        };
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  stickerChangeBtn.addEventListener('click', () => {
+    stickerSource = null;
+    stickerBlob   = null;
+    stickerImg.src = '';
+    stickerFileInput.value = '';
+    stickerUploadSection.style.display = '';
+    stickerEditor.classList.add('hidden');
+    stickerResult.classList.add('hidden');
+    stickerDownloadBtn.disabled = true;
+  });
+
+  // --- Crop Box Initialization ---
+  function initCropBox() {
+    // Start with the largest centered square (or ratio-locked region)
+    const cw = cropContainer.offsetWidth;
+    const ch = cropContainer.offsetHeight;
+
+    if (stickerRatio === 'free') {
+      crop = { x: 10, y: 10, w: 80, h: 80 };
+    } else {
+      const [rw, rh] = stickerRatio.split(':').map(Number);
+      const ratioVal = rw / rh;
+      const containerRatio = cw / ch;
+
+      let wPct, hPct;
+      if (ratioVal > containerRatio) {
+        wPct = 90;
+        hPct = (wPct * cw / ch) / ratioVal;
+      } else {
+        hPct = 90;
+        wPct = (hPct * ch / cw) * ratioVal;
+      }
+      crop = {
+        x: (100 - wPct) / 2,
+        y: (100 - hPct) / 2,
+        w: wPct,
+        h: hPct
+      };
+    }
+    applyCrop();
+  }
+
+  // --- Apply crop percentages to DOM ---
+  function applyCrop() {
+    const sel = cropSelection;
+    sel.style.left   = crop.x + '%';
+    sel.style.top    = crop.y + '%';
+    sel.style.width  = crop.w + '%';
+    sel.style.height = crop.h + '%';
+
+    // Dark overlays
+    overlayTop.style.height    = crop.y + '%';
+    overlayBottom.style.height = (100 - crop.y - crop.h) + '%';
+    overlayLeft.style.top      = crop.y + '%';
+    overlayLeft.style.bottom   = (100 - crop.y - crop.h) + '%';
+    overlayLeft.style.width    = crop.x + '%';
+    overlayRight.style.top     = crop.y + '%';
+    overlayRight.style.bottom  = (100 - crop.y - crop.h) + '%';
+    overlayRight.style.width   = (100 - crop.x - crop.w) + '%';
+  }
+
+  // --- Drag Logic ---
+  function getRelativePos(e) {
+    const rect = cropContainer.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width)  * 100,
+      y: ((clientY - rect.top)  / rect.height) * 100
+    };
+  }
+
+  function onDragStart(e, handleType) {
+    e.preventDefault();
+    const pos = getRelativePos(e);
+    drag = {
+      type: handleType,
+      startX: pos.x,
+      startY: pos.y,
+      startCrop: { ...crop }
+    };
+  }
+
+  // Move handle (inside the selection)
+  cropMove.addEventListener('mousedown',  e => onDragStart(e, 'move'));
+  cropMove.addEventListener('touchstart', e => onDragStart(e, 'move'), { passive: false });
+
+  // Resize handles
+  cropSelection.querySelectorAll('.crop-handle').forEach(handle => {
+    handle.addEventListener('mousedown',  e => { e.stopPropagation(); onDragStart(e, handle.dataset.handle); });
+    handle.addEventListener('touchstart', e => { e.stopPropagation(); onDragStart(e, handle.dataset.handle); }, { passive: false });
+  });
+
+  window.addEventListener('mousemove',  onDragMove);
+  window.addEventListener('touchmove',  onDragMove, { passive: false });
+  window.addEventListener('mouseup',   onDragEnd);
+  window.addEventListener('touchend',  onDragEnd);
+
+  function onDragMove(e) {
+    if (!drag) return;
+    if (e.cancelable) e.preventDefault();
+
+    const pos = getRelativePos(e);
+    const dx  = pos.x - drag.startX;
+    const dy  = pos.y - drag.startY;
+    const sc  = drag.startCrop;
+
+    let { x, y, w, h } = sc;
+
+    const MIN = 5; // Minimum crop size in %
+
+    const [rw, rh] = stickerRatio !== 'free' ? stickerRatio.split(':').map(Number) : [0, 0];
+    const cw = cropContainer.offsetWidth;
+    const ch = cropContainer.offsetHeight;
+    // Aspect ratio of crop in percentage units
+    const ratioLocked = stickerRatio !== 'free';
+
+    if (drag.type === 'move') {
+      x = clamp(sc.x + dx, 0, 100 - sc.w);
+      y = clamp(sc.y + dy, 0, 100 - sc.h);
+      w = sc.w; h = sc.h;
+
+    } else {
+      // Resize handles
+      const type = drag.type;
+
+      if (type.includes('e')) {
+        w = clamp(sc.w + dx, MIN, 100 - sc.x);
+      }
+      if (type.includes('s')) {
+        h = clamp(sc.h + dy, MIN, 100 - sc.y);
+      }
+      if (type.includes('w')) {
+        const newW = clamp(sc.w - dx, MIN, sc.x + sc.w);
+        x = sc.x + sc.w - newW;
+        w = newW;
+      }
+      if (type.includes('n')) {
+        const newH = clamp(sc.h - dy, MIN, sc.y + sc.h);
+        y = sc.y + sc.h - newH;
+        h = newH;
+      }
+
+      // Lock aspect ratio
+      if (ratioLocked) {
+        // Convert % to pixels for ratio math
+        const pixW = (w / 100) * cw;
+        const pixH = (h / 100) * ch;
+        const targetRatio = rw / rh;
+        const currentRatioVal = pixW / pixH;
+
+        if (type.includes('e') || type.includes('w')) {
+          // Width was changed → adjust height
+          const newPixH = pixW / targetRatio;
+          const newH = (newPixH / ch) * 100;
+          if (type.includes('n')) {
+            y = sc.y + sc.h - newH;
+          }
+          h = clamp(newH, MIN, 100 - y);
+        } else {
+          // Height was changed → adjust width
+          const newPixW = pixH * targetRatio;
+          const newW = (newPixW / cw) * 100;
+          if (type.includes('w')) {
+            x = sc.x + sc.w - newW;
+          }
+          w = clamp(newW, MIN, 100 - x);
+        }
+      }
+    }
+
+    crop = { x, y, w, h };
+    applyCrop();
+  }
+
+  function onDragEnd() {
+    drag = null;
+  }
+
+  // --- Ratio Selector ---
+  stickerRatioSelector.addEventListener('click', e => {
+    const btn = e.target.closest('.ratio-btn');
+    if (!btn) return;
+
+    stickerRatioSelector.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    stickerRatio = btn.dataset.sratio;
+
+    if (stickerSource) initCropBox();
+  });
+
+  // --- Create Sticker ---
+  stickerCreateBtn.addEventListener('click', createSticker);
+
+  function createSticker() {
+    if (!stickerSource) return;
+
+    const STICKER_SIZE = 512;
+    stickerCanvas.width  = STICKER_SIZE;
+    stickerCanvas.height = STICKER_SIZE;
+
+    // Clear to transparent
+    stickerCtx.clearRect(0, 0, STICKER_SIZE, STICKER_SIZE);
+
+    // Map crop percentages → source image pixels
+    const imgW = stickerSource.naturalWidth;
+    const imgH = stickerSource.naturalHeight;
+
+    // The img element is displayed with object-fit: contain inside the container
+    const containerW = cropContainer.offsetWidth;
+    const containerH = cropContainer.offsetHeight;
+
+    // Compute actual rendered image dimensions inside the container
+    const imgAspect = imgW / imgH;
+    const containerAspect = containerW / containerH;
+
+    let renderedW, renderedH, offsetX, offsetY;
+    if (imgAspect > containerAspect) {
+      renderedW = containerW;
+      renderedH = containerW / imgAspect;
+      offsetX = 0;
+      offsetY = (containerH - renderedH) / 2;
+    } else {
+      renderedH = containerH;
+      renderedW = containerH * imgAspect;
+      offsetX = (containerW - renderedW) / 2;
+      offsetY = 0;
+    }
+
+    // Crop box in container pixels
+    const cropPxX = (crop.x / 100) * containerW;
+    const cropPxY = (crop.y / 100) * containerH;
+    const cropPxW = (crop.w / 100) * containerW;
+    const cropPxH = (crop.h / 100) * containerH;
+
+    // Clamp crop to rendered image area
+    const clampedX = Math.max(cropPxX, offsetX);
+    const clampedY = Math.max(cropPxY, offsetY);
+    const clampedW = Math.min(cropPxX + cropPxW, offsetX + renderedW) - clampedX;
+    const clampedH = Math.min(cropPxY + cropPxH, offsetY + renderedH) - clampedY;
+
+    // Convert back to source image pixels
+    const sx = ((clampedX - offsetX) / renderedW) * imgW;
+    const sy = ((clampedY - offsetY) / renderedH) * imgH;
+    const sw = (clampedW / renderedW) * imgW;
+    const sh = (clampedH / renderedH) * imgH;
+
+    // Draw cropped region centered on the 512x512 canvas
+    const cropAspect = clampedW / clampedH;
+    let destX = 0, destY = 0, destW = STICKER_SIZE, destH = STICKER_SIZE;
+
+    if (stickerRatio === 'free') {
+      // Fit into 512x512, centered, with transparent padding
+      if (cropAspect > 1) {
+        destH = STICKER_SIZE / cropAspect;
+        destY = (STICKER_SIZE - destH) / 2;
+      } else {
+        destW = STICKER_SIZE * cropAspect;
+        destX = (STICKER_SIZE - destW) / 2;
+      }
+    }
+
+    stickerCtx.imageSmoothingEnabled = true;
+    stickerCtx.imageSmoothingQuality = 'high';
+    stickerCtx.drawImage(stickerSource, sx, sy, sw, sh, destX, destY, destW, destH);
+
+    // Export as WebP blob
+    stickerCanvas.toBlob(blob => {
+      if (!blob) {
+        showToast('WebP export not supported in this browser. Try Chrome or Safari 16+.');
+        return;
+      }
+
+      stickerBlob = blob;
+      const sizeKB = (blob.size / 1024).toFixed(1);
+      stickerFileSizeBadge.textContent = `${sizeKB} KB`;
+
+      if (blob.size > 100 * 1024) {
+        stickerFileSizeBadge.style.background = 'rgba(239,68,68,0.15)';
+        stickerFileSizeBadge.style.color = '#f87171';
+        showToast(`File is ${sizeKB} KB — WhatsApp limit is 100 KB. Try a smaller crop.`);
+      } else {
+        stickerFileSizeBadge.style.background = '';
+        stickerFileSizeBadge.style.color = '';
+      }
+
+      stickerResult.classList.remove('hidden');
+      stickerDownloadBtn.disabled = false;
+      showToast('Sticker created!');
+    }, 'image/webp', 0.92);
+  }
+
+  // --- Download ---
+  stickerDownloadBtn.addEventListener('click', () => {
+    if (!stickerBlob) return;
+    const url = URL.createObjectURL(stickerBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sticker.webp';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Sticker downloaded!');
+  });
+
+})();

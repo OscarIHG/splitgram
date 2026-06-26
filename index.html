@@ -45,7 +45,27 @@
         </div>
         <h1 class="logo-text">Split<span>Gram</span></h1>
       </div>
-      <p class="subtitle">Split your horizontal photo into two perfect panels for Instagram carousels</p>
+      <p class="subtitle" id="mainSubtitle">Split your horizontal photo into two perfect panels for Instagram carousels</p>
+
+      <!-- Tool tab switcher -->
+      <div class="tool-tabs" id="toolTabs">
+        <button class="tool-tab active" id="tabSplitter" data-tool="splitter">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="1" width="5" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="10" y="1" width="5" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Carousel Splitter
+        </button>
+        <button class="tool-tab" id="tabSticker" data-tool="sticker">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="1" width="14" height="14" rx="4" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="5.5" cy="6" r="1.2" fill="currentColor" opacity="0.6"/>
+            <circle cx="10.5" cy="6" r="1.2" fill="currentColor" opacity="0.6"/>
+            <path d="M5 10.5c.8 1 4.2 1 5.5 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Sticker Maker
+        </button>
+      </div>
     </header>
 
     <!-- Upload Zone -->
@@ -206,6 +226,185 @@
         <p>If your photo doesn't fit exactly, the app center-crops it so both panels line up perfectly and seamlessly. Your image never leaves your browser — everything is processed locally.</p>
       </div>
     </section>
+
+    <!-- ===== STICKER MAKER SECTION ===== -->
+    <section class="sticker-section hidden" id="stickerSection">
+
+      <!-- Upload Zone (sticker) -->
+      <div class="upload-section" id="stickerUploadSection">
+        <div class="upload-zone" id="stickerUploadZone" tabindex="0" role="button" aria-label="Upload image for sticker">
+          <div class="upload-zone-inner">
+            <div class="upload-icon">
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                <rect x="4" y="12" width="48" height="32" rx="6" stroke="url(#stickerUploadGrad)" stroke-width="2.5" stroke-dasharray="6 4"/>
+                <path d="M28 22v12M22 28h12" stroke="url(#stickerUploadGrad)" stroke-width="2.5" stroke-linecap="round"/>
+                <defs>
+                  <linearGradient id="stickerUploadGrad" x1="4" y1="12" x2="52" y2="44" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#22d3ee"/>
+                    <stop offset="1" stop-color="#a855f7"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <p class="upload-text">Drag your image here</p>
+            <p class="upload-subtext">or click to browse</p>
+            <div class="upload-formats">JPG · PNG · WebP</div>
+          </div>
+          <input type="file" id="stickerFileInput" accept="image/jpeg,image/png,image/webp" hidden>
+        </div>
+      </div>
+
+      <!-- Sticker Editor (hidden until image loaded) -->
+      <div class="sticker-editor hidden" id="stickerEditor">
+
+        <!-- Info bar -->
+        <div class="image-info-bar">
+          <div class="info-chip">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="7" r="1.5" fill="currentColor" opacity="0.5"/></svg>
+            <span id="stickerFileName">image.jpg</span>
+          </div>
+          <div class="info-chip">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span id="stickerImageSize">0 × 0 px</span>
+          </div>
+          <button class="change-image-btn" id="stickerChangeBtn" aria-label="Change image">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 2.5l-11 11M13.5 2.5h-5m5 0v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Change
+          </button>
+        </div>
+
+        <!-- Aspect ratio controls -->
+        <div class="controls-card">
+          <div class="control-group" style="margin: 0 auto; max-width: 560px;">
+            <label class="control-label" style="text-align: center;">Crop shape</label>
+            <div class="ratio-selector" id="stickerRatioSelector">
+              <button class="ratio-btn" data-sratio="free">
+                <div class="ratio-preview" style="aspect-ratio: 1/1; display:flex; align-items:center; justify-content:center;">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 6V3h3M15 6V3h-3M3 12v3h3M15 12v3h-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </div>
+                <div class="ratio-info">
+                  <span class="ratio-name">Free</span>
+                  <span class="ratio-desc">Any shape</span>
+                </div>
+              </button>
+              <button class="ratio-btn active" data-sratio="1:1">
+                <div class="ratio-preview" style="aspect-ratio: 1/1;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">1:1</span>
+                  <span class="ratio-desc">Square</span>
+                </div>
+              </button>
+              <button class="ratio-btn" data-sratio="4:3">
+                <div class="ratio-preview" style="aspect-ratio: 4/3;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">4:3</span>
+                  <span class="ratio-desc">Landscape</span>
+                </div>
+              </button>
+              <button class="ratio-btn" data-sratio="3:4">
+                <div class="ratio-preview" style="aspect-ratio: 3/4;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">3:4</span>
+                  <span class="ratio-desc">Portrait</span>
+                </div>
+              </button>
+              <button class="ratio-btn" data-sratio="16:9">
+                <div class="ratio-preview" style="aspect-ratio: 16/9;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">16:9</span>
+                  <span class="ratio-desc">Widescreen</span>
+                </div>
+              </button>
+            </div>
+            <p class="control-hint" style="text-align: center; margin-top: 16px;">Exported as 512×512 px WebP with transparent background — perfect for WhatsApp.</p>
+          </div>
+        </div>
+
+        <!-- Crop preview -->
+        <div class="preview-area">
+          <div class="preview-header">
+            <h2 class="preview-title">Crop Preview</h2>
+            <div class="preview-badge" id="stickerSizeBadge">512 × 512 px</div>
+          </div>
+          <div class="sticker-crop-wrap">
+            <div class="sticker-crop-container" id="stickerCropContainer">
+              <img id="stickerImg" alt="Sticker source image">
+              <!-- Crop box -->
+              <div class="crop-box" id="cropBox">
+                <div class="crop-box-overlay top"></div>
+                <div class="crop-box-overlay bottom"></div>
+                <div class="crop-box-overlay left"></div>
+                <div class="crop-box-overlay right"></div>
+                <div class="crop-selection" id="cropSelection">
+                  <!-- Corner handles -->
+                  <div class="crop-handle nw" data-handle="nw"></div>
+                  <div class="crop-handle ne" data-handle="ne"></div>
+                  <div class="crop-handle sw" data-handle="sw"></div>
+                  <div class="crop-handle se" data-handle="se"></div>
+                  <!-- Edge handles -->
+                  <div class="crop-handle n" data-handle="n"></div>
+                  <div class="crop-handle s" data-handle="s"></div>
+                  <div class="crop-handle w" data-handle="w"></div>
+                  <div class="crop-handle e" data-handle="e"></div>
+                  <!-- Move cursor area -->
+                  <div class="crop-move" id="cropMove"></div>
+                  <!-- Grid lines -->
+                  <div class="crop-grid">
+                    <div class="crop-grid-line h" style="top: 33.33%"></div>
+                    <div class="crop-grid-line h" style="top: 66.66%"></div>
+                    <div class="crop-grid-line v" style="left: 33.33%"></div>
+                    <div class="crop-grid-line v" style="left: 66.66%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="preview-caption">Drag the crop box to reposition. Drag corners or edges to resize.</p>
+          </div>
+        </div>
+
+        <!-- Action bar -->
+        <div class="action-bar">
+          <button class="btn btn-split" id="stickerCreateBtn">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M6 10h8M10 6v8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Create Sticker
+          </button>
+          <button class="btn btn-zip" id="stickerDownloadBtn" disabled>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3v10m0 0l-3-3m3 3l3-3M3 17h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download Sticker
+          </button>
+        </div>
+
+        <!-- Sticker preview result -->
+        <div class="sticker-result hidden" id="stickerResult">
+          <div class="preview-header" style="margin-top: 32px;">
+            <h2 class="preview-title">Result</h2>
+            <div class="preview-badge" id="stickerFileSizeBadge">-- KB</div>
+          </div>
+          <div class="sticker-result-preview">
+            <div class="sticker-result-canvas-wrap">
+              <canvas id="stickerCanvas"></canvas>
+            </div>
+            <div class="sticker-result-info">
+              <p class="sticker-info-line"><strong>Format:</strong> WebP</p>
+              <p class="sticker-info-line"><strong>Dimensions:</strong> 512 × 512 px</p>
+              <p class="sticker-info-line"><strong>Background:</strong> Transparent</p>
+              <p class="sticker-info-note">Send this file on WhatsApp by sharing it from your Photos app or Files app in a chat.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip -->
+        <div class="tip-card">
+          <div class="tip-icon">💡</div>
+          <p>On iPhone: save the sticker to your Photos, then in a WhatsApp chat tap the attachment icon → Photo Library and send it. Your contacts will see it full-size.</p>
+        </div>
+
+      </div>
+    </section>
+
   </main>
 
   <!-- Toast notification -->

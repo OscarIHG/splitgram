@@ -163,6 +163,55 @@ body {
   margin: 0 auto;
 }
 
+/* ---------- Tool Tab Switcher ---------- */
+.tool-tabs {
+  display: flex;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 6px;
+  margin-top: 28px;
+  backdrop-filter: blur(20px);
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.tool-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.tool-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.tool-tab.active {
+  background: var(--gradient-main);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.3);
+}
+
+.tool-tab svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
 /* ---------- Upload Zone ---------- */
 .upload-section {
   animation: fadeInUp 0.7s ease-out 0.1s both;
@@ -883,4 +932,215 @@ body {
 ::selection {
   background: rgba(168, 85, 247, 0.3);
   color: var(--text-primary);
+}
+
+/* ============================================
+   STICKER MAKER
+   ============================================ */
+
+.sticker-section {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.sticker-section.hidden {
+  display: none;
+}
+
+.sticker-editor {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.sticker-editor.hidden {
+  display: none;
+}
+
+/* ---------- Crop Container ---------- */
+.sticker-crop-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.sticker-crop-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  cursor: crosshair;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border-color), var(--shadow-glow);
+  user-select: none;
+}
+
+#stickerImg {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  pointer-events: none;
+  border-radius: var(--radius-md);
+}
+
+/* ---------- Crop Box ---------- */
+.crop-box {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Dark overlay around crop area */
+.crop-box-overlay {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.crop-box-overlay.top {
+  top: 0; left: 0; right: 0;
+}
+
+.crop-box-overlay.bottom {
+  bottom: 0; left: 0; right: 0;
+}
+
+.crop-box-overlay.left {
+  left: 0;
+}
+
+.crop-box-overlay.right {
+  right: 0;
+}
+
+/* ---------- Crop Selection ---------- */
+.crop-selection {
+  position: absolute;
+  border: 2px solid rgba(168, 85, 247, 0.9);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+  cursor: move;
+  z-index: 2;
+  pointer-events: all;
+}
+
+/* Grid lines (rule of thirds) */
+.crop-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.crop-grid-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.crop-grid-line.h {
+  left: 0; right: 0;
+  height: 1px;
+}
+
+.crop-grid-line.v {
+  top: 0; bottom: 0;
+  width: 1px;
+}
+
+/* Move overlay covers inside of selection */
+.crop-move {
+  position: absolute;
+  inset: 0;
+  cursor: move;
+  z-index: 3;
+}
+
+/* ---------- Crop Handles ---------- */
+.crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #a855f7;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  z-index: 4;
+  pointer-events: all;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+/* Corners */
+.crop-handle.nw { top: -7px; left: -7px; cursor: nw-resize; }
+.crop-handle.ne { top: -7px; right: -7px; cursor: ne-resize; }
+.crop-handle.sw { bottom: -7px; left: -7px; cursor: sw-resize; }
+.crop-handle.se { bottom: -7px; right: -7px; cursor: se-resize; }
+
+/* Edges */
+.crop-handle.n { top: -7px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.crop-handle.s { bottom: -7px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.crop-handle.w { left: -7px; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+.crop-handle.e { right: -7px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+
+/* ---------- Sticker Result Preview ---------- */
+.sticker-result {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.sticker-result.hidden {
+  display: none;
+}
+
+.sticker-result-preview {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.sticker-result-canvas-wrap {
+  background:
+    repeating-conic-gradient(rgba(255,255,255,0.06) 0% 25%, transparent 0% 50%)
+    0 0 / 20px 20px;
+  border-radius: var(--radius-md);
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#stickerCanvas {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+.sticker-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  min-width: 220px;
+}
+
+.sticker-info-line {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.sticker-info-line strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.sticker-info-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
 }
