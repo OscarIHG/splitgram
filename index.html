@@ -2,18 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SplitGram — Split your photos for Instagram carousels</title>
-  <meta name="description" content="Split any horizontal photo into two perfect panels for Instagram carousels. No quality loss, 100% in your browser.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>SplitGram — Seamless Carousel Splitter for Instagram</title>
+  <meta name="description" content="Split any horizontal or panoramic photo into 2 to 5 seamless panels for Instagram carousels. Zero quality loss, 100% local in your browser & iPhone ready.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  
-  <!-- PWA Meta Tags -->
+
+  <!-- PWA & iPhone / iOS Native Web App Meta Tags -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SplitGram">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
 </head>
 <body>
   <!-- Animated background orbs -->
@@ -26,6 +32,15 @@
   <main id="app">
     <!-- Header -->
     <header class="header">
+      <div class="header-top-bar">
+        <button class="ios-pill-btn" id="iosInstallBtn" type="button" aria-label="Install on iPhone">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="3" ry="3"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          <span>iPhone App</span>
+        </button>
+      </div>
       <div class="logo">
         <div class="logo-icon">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -45,7 +60,7 @@
         </div>
         <h1 class="logo-text">Split<span>Gram</span></h1>
       </div>
-      <p class="subtitle">Split your horizontal photo into two perfect panels for Instagram carousels</p>
+      <p class="subtitle">Split your horizontal or panoramic photo into seamless panels for Instagram carousels</p>
     </header>
 
     <!-- Upload Zone -->
@@ -66,17 +81,16 @@
               </defs>
             </svg>
           </div>
-          <p class="upload-text">Drag your image here</p>
-          <p class="upload-subtext">or click to browse</p>
-          <div class="upload-formats">JPG · PNG · WebP</div>
+          <p class="upload-text">Tap to select from Photos or drag here</p>
+          <p class="upload-subtext">100% private — processed directly on your device</p>
+          <div class="upload-formats">JPG · PNG · WebP · HEIC</div>
         </div>
-        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" hidden>
+        <input type="file" id="fileInput" accept="image/*" hidden>
       </div>
     </section>
 
     <!-- Editor (hidden until image loaded) -->
     <section class="editor-section hidden" id="editorSection">
-      
       <!-- Original image info bar -->
       <div class="image-info-bar" id="imageInfoBar">
         <div class="info-chip">
@@ -87,129 +101,315 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           <span id="imageSize">4000 × 2000 px</span>
         </div>
-        <button class="change-image-btn" id="changeImageBtn" aria-label="Change image">
+        <button class="change-image-btn" id="changeImageBtn" type="button" aria-label="Change image">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 2.5l-11 11M13.5 2.5h-5m5 0v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Change
+          Change photo
         </button>
       </div>
 
       <!-- Controls -->
       <div class="controls-card">
-        <div class="control-group" style="margin: 0 auto; max-width: 450px;">
-          <label class="control-label" style="text-align: center;">Panel aspect ratio</label>
-          <div class="ratio-selector" id="ratioSelector">
-            <button class="ratio-btn active" data-ratio="4:5" data-w="1080" data-h="1350">
-              <div class="ratio-preview" style="aspect-ratio: 4/5;"></div>
-              <div class="ratio-info">
-                <span class="ratio-name">4:5</span>
-                <span class="ratio-desc">Classic Instagram</span>
-              </div>
+        <div class="controls-grid">
+          <!-- Panel Count Selector -->
+          <div class="control-group">
+            <label class="control-label">Panels (1 = Single Photo · 2–5 = Carousel)</label>
+            <div class="pill-selector" id="panelCountSelector" role="radiogroup" aria-label="Number of panels">
+              <button class="pill-btn" type="button" data-panels="1">1</button>
+              <button class="pill-btn active" type="button" data-panels="2">2</button>
+              <button class="pill-btn" type="button" data-panels="3">3</button>
+              <button class="pill-btn" type="button" data-panels="4">4</button>
+              <button class="pill-btn" type="button" data-panels="5">5</button>
+            </div>
+          </div>
+
+          <!-- Aspect Ratio Selector -->
+          <div class="control-group">
+            <label class="control-label">Panel aspect ratio</label>
+            <div class="ratio-selector" id="ratioSelector" role="radiogroup" aria-label="Panel aspect ratio">
+              <button class="ratio-btn active" type="button" data-ratio="4:5">
+                <div class="ratio-preview" style="aspect-ratio: 4/5;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">4:5</span>
+                  <span class="ratio-desc">Portrait</span>
+                </div>
+              </button>
+              <button class="ratio-btn" type="button" data-ratio="3:4">
+                <div class="ratio-preview" style="aspect-ratio: 3/4;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">3:4</span>
+                  <span class="ratio-desc">Grid 2025+</span>
+                </div>
+              </button>
+              <button class="ratio-btn" type="button" data-ratio="1:1">
+                <div class="ratio-preview" style="aspect-ratio: 1/1;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">1:1</span>
+                  <span class="ratio-desc">Square</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Export Format Selector -->
+          <div class="control-group">
+            <label class="control-label">Export format</label>
+            <div class="pill-selector" id="formatSelector" role="radiogroup" aria-label="Export format">
+              <button class="pill-btn active" type="button" data-format="image/jpeg" data-ext="jpg">
+                <span>JPG</span>
+                <small>Best for iOS/IG</small>
+              </button>
+              <button class="pill-btn" type="button" data-format="image/png" data-ext="png">
+                <span>PNG</span>
+                <small>Lossless</small>
+              </button>
+              <button class="pill-btn" type="button" data-format="image/webp" data-ext="webp">
+                <span>WebP</span>
+                <small>Light</small>
+              </button>
+            </div>
+          </div>
+
+          <!-- Resolution Selector -->
+          <div class="control-group">
+            <label class="control-label">Output resolution</label>
+            <div class="pill-selector" id="resolutionSelector" role="radiogroup" aria-label="Output resolution">
+              <button class="pill-btn active" type="button" data-res="1080">
+                <span>IG 1080p</span>
+                <small>1080px / panel</small>
+              </button>
+              <button class="pill-btn" type="button" data-res="max">
+                <span>Max Native</span>
+                <small>Original px</small>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Strava / Garmin Activity Overlay Card -->
+      <div class="strava-card" id="stravaCard">
+        <div class="strava-header">
+          <div class="strava-brand">
+            <span class="strava-badge" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="strava-title">Strava / Garmin Activity Overlay</h3>
+              <p class="strava-subtitle">Paste your run stats or transparent sticker directly onto the photo</p>
+            </div>
+          </div>
+          <div class="strava-header-actions">
+            <button class="strava-action-btn strava-paste-btn" id="pasteStravaBtn" type="button">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              <span>Paste Activity</span>
             </button>
-            <button class="ratio-btn" data-ratio="3:4" data-w="1080" data-h="1440">
-              <div class="ratio-preview" style="aspect-ratio: 3/4;"></div>
-              <div class="ratio-info">
-                <span class="ratio-name">3:4</span>
-                <span class="ratio-desc">Taller</span>
-              </div>
+            <button class="strava-action-btn" id="uploadStickerBtn" type="button" title="Overlay a transparent PNG sticker from Strava">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>Sticker PNG</span>
             </button>
-            <button class="ratio-btn" data-ratio="1:1" data-w="1080" data-h="1080">
-              <div class="ratio-preview" style="aspect-ratio: 1/1;"></div>
-              <div class="ratio-info">
-                <span class="ratio-name">1:1</span>
-                <span class="ratio-desc">Square</span>
-              </div>
+            <input type="file" id="stickerInput" accept="image/png,image/webp,image/*" hidden>
+            <button class="strava-action-btn strava-clear-btn hidden" id="clearStravaBtn" type="button">
+              Clear
             </button>
           </div>
-          <p class="control-hint" style="text-align: center; margin-top: 16px;">Export resolution is calculated automatically to preserve maximum original quality.</p>
+        </div>
+
+        <div class="strava-body">
+          <!-- Smart Paste Input -->
+          <div class="strava-paste-row">
+            <input
+              type="text"
+              id="stravaRawInput"
+              class="strava-raw-input"
+              placeholder="Paste text here (e.g. Morning Run · 10.5 km · 5:12 /km · 54m 42s) or edit fields below..."
+              aria-label="Paste raw Strava activity text"
+            >
+          </div>
+
+          <!-- 4 Editable Metric Fields -->
+          <div class="strava-fields-grid">
+            <div class="strava-field">
+              <label for="stravaTitleInput">Activity Title</label>
+              <input type="text" id="stravaTitleInput" placeholder="Morning Run" maxlength="40">
+            </div>
+            <div class="strava-field">
+              <label for="stravaDistInput">Distance</label>
+              <input type="text" id="stravaDistInput" placeholder="10.52 km" maxlength="20">
+            </div>
+            <div class="strava-field">
+              <label for="stravaPaceInput">Pace / Speed</label>
+              <input type="text" id="stravaPaceInput" placeholder="5:12 /km" maxlength="20">
+            </div>
+            <div class="strava-field">
+              <label for="stravaTimeInput">Time / Elev</label>
+              <input type="text" id="stravaTimeInput" placeholder="54m 42s" maxlength="24">
+            </div>
+          </div>
+
+          <!-- Style, Position & Slide Target Selectors -->
+          <div class="strava-options-grid">
+            <div class="control-group">
+              <label class="control-label">Overlay Style</label>
+              <div class="pill-selector" id="stravaStyleSelector">
+                <button class="pill-btn active" type="button" data-style="strava-classic">
+                  <span>Strava</span>
+                  <small>Orange bar</small>
+                </button>
+                <button class="pill-btn" type="button" data-style="glass-dark">
+                  <span>Dark Glass</span>
+                  <small>Badge</small>
+                </button>
+                <button class="pill-btn" type="button" data-style="minimal-white">
+                  <span>Minimal</span>
+                  <small>Clean text</small>
+                </button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">Position</label>
+              <div class="pill-selector" id="stravaPosSelector">
+                <button class="pill-btn active" type="button" data-pos="bottom-left">
+                  <span>Bottom L</span>
+                </button>
+                <button class="pill-btn" type="button" data-pos="bottom-center">
+                  <span>Bottom C</span>
+                </button>
+                <button class="pill-btn" type="button" data-pos="top-left">
+                  <span>Top L</span>
+                </button>
+                <button class="pill-btn" type="button" data-pos="center">
+                  <span>Center</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="control-group" id="stravaTargetGroup">
+              <label class="control-label">Show on Slide</label>
+              <div class="pill-selector" id="stravaTargetSelector">
+                <button class="pill-btn active" type="button" data-target="first">
+                  <span>Slide 1</span>
+                </button>
+                <button class="pill-btn" type="button" data-target="last">
+                  <span>Last Slide</span>
+                </button>
+                <button class="pill-btn" type="button" data-target="all">
+                  <span>Center Seam</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Preview -->
       <div class="preview-area">
         <div class="preview-header">
-          <h2 class="preview-title">Preview</h2>
+          <h2 class="preview-title">Live Crop & Split Preview</h2>
           <div class="preview-badge" id="exportDimsBadge">1080 × 1350 px per panel</div>
         </div>
 
-        <!-- Original with split line -->
+        <!-- Original with dynamic split lines and 4-way crop overlays -->
         <div class="original-preview-wrap">
           <div class="original-preview" id="originalPreview">
             <img id="originalImg" alt="Original image">
-            <div class="split-line" id="splitLine">
-              <div class="split-line-handle">
-                <svg width="14" height="28" viewBox="0 0 14 28" fill="none">
-                  <path d="M7 2l4 5H3l4-5z" fill="white" opacity="0.9"/>
-                  <path d="M7 26l4-5H3l4 5z" fill="white" opacity="0.9"/>
-                  <rect x="6" y="9" width="2" height="10" rx="1" fill="white" opacity="0.5"/>
-                </svg>
-              </div>
+            <!-- Dynamic split lines injected by JS -->
+            <div class="split-lines-container" id="splitLinesContainer" aria-hidden="true"></div>
+
+            <!-- Interactive Pan Handle -->
+            <div class="pan-handle" id="panHandle" role="slider" aria-label="Adjust crop position">
+              <svg class="icon-vertical" width="16" height="28" viewBox="0 0 14 28" fill="none">
+                <path d="M7 2l4 5H3l4-5z" fill="white" opacity="0.95"/>
+                <path d="M7 26l4-5H3l4 5z" fill="white" opacity="0.95"/>
+                <rect x="6" y="9" width="2" height="10" rx="1" fill="white" opacity="0.6"/>
+              </svg>
+              <svg class="icon-horizontal" width="28" height="16" viewBox="0 0 28 14" fill="none">
+                <path d="M2 7l5-4v8L2 7z" fill="white" opacity="0.95"/>
+                <path d="M26 7l-5-4v8l5-4z" fill="white" opacity="0.95"/>
+                <rect x="9" y="6" width="10" height="2" rx="1" fill="white" opacity="0.6"/>
+              </svg>
             </div>
-            <!-- Crop overlay indicators -->
+
+            <!-- 4-way Crop overlay indicators -->
             <div class="crop-overlay crop-overlay-top" id="cropTop"></div>
             <div class="crop-overlay crop-overlay-bottom" id="cropBottom"></div>
+            <div class="crop-overlay crop-overlay-left" id="cropLeft"></div>
+            <div class="crop-overlay crop-overlay-right" id="cropRight"></div>
           </div>
-          <p class="preview-caption">The line marks where the image will be split. <strong>Drag the purple handle ↕</strong> to adjust which part of the image is kept.</p>
+          <p class="preview-caption" id="previewCaption">Drag the purple handle to adjust which part of the image is kept.</p>
         </div>
 
-        <!-- Split panels -->
-        <div class="panels-grid">
-          <div class="panel-card">
-            <div class="panel-label">
-              <span class="panel-number">1</span>
-              Left panel
-            </div>
-            <div class="panel-canvas-wrap">
-              <canvas id="canvas1"></canvas>
-            </div>
-            <div class="panel-actions">
-              <span class="panel-dims" id="panel1Dims">1080 × 1350</span>
-              <button class="download-btn" id="downloadBtn1" aria-label="Download panel 1">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3v9m0 0l-3-3m3 3l3-3M3 15h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Download
-              </button>
-            </div>
-          </div>
-          <div class="panel-card">
-            <div class="panel-label">
-              <span class="panel-number">2</span>
-              Right panel
-            </div>
-            <div class="panel-canvas-wrap">
-              <canvas id="canvas2"></canvas>
-            </div>
-            <div class="panel-actions">
-              <span class="panel-dims" id="panel2Dims">1080 × 1350</span>
-              <button class="download-btn" id="downloadBtn2" aria-label="Download panel 2">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3v9m0 0l-3-3m3 3l3-3M3 15h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Download
-              </button>
-            </div>
-          </div>
-        </div>
+        <!-- Dynamic Split panels -->
+        <div class="panels-grid" id="panelsGrid"></div>
       </div>
 
-      <!-- Action bar -->
+      <!-- Sticky-ready Action bar for iPhone & Desktop -->
       <div class="action-bar">
-        <button class="btn btn-split" id="splitBtn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="6" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="12" y="2" width="6" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>
-          Split image
+        <button class="btn btn-primary" id="shareBtn" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          <span id="shareBtnText">Save to iPhone Photos / Share</span>
         </button>
-        <button class="btn btn-zip" id="zipBtn" disabled>
+        <button class="btn btn-secondary" id="zipBtn" type="button">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2h8l4 4v10a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M8 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></svg>
-          Download ZIP
+          <span>Download ZIP</span>
         </button>
       </div>
 
       <!-- Tip -->
       <div class="tip-card">
         <div class="tip-icon">💡</div>
-        <p>If your photo doesn't fit exactly, the app center-crops it so both panels line up perfectly and seamlessly. Your image never leaves your browser — everything is processed locally.</p>
+        <p><strong>iPhone Tip:</strong> Tap <em>Save to iPhone Photos / Share</em> and choose <strong>Save Images</strong> to send all panels directly to your Camera Roll in order, ready for Instagram.</p>
       </div>
     </section>
   </main>
 
+  <!-- iPhone Installation Sheet Modal -->
+  <div class="modal-backdrop hidden" id="iosModal" role="dialog" aria-modal="true" aria-labelledby="iosModalTitle">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <img src="icon-192.png" alt="SplitGram Icon" class="modal-app-icon">
+        <div>
+          <h3 id="iosModalTitle">Install SplitGram on iPhone</h3>
+          <p>Use SplitGram full-screen offline like a native iOS app</p>
+        </div>
+        <button class="modal-close" id="closeIosModal" type="button" aria-label="Close">&times;</button>
+      </div>
+      <ol class="ios-steps">
+        <li>
+          <span class="step-badge">1</span>
+          <div>
+            Open this page in <strong>Safari</strong> on your iPhone and tap the <strong>Share</strong> button
+            <span class="inline-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            </span>
+            in the bottom bar.
+          </div>
+        </li>
+        <li>
+          <span class="step-badge">2</span>
+          <div>
+            Scroll down and tap <strong>Add to Home Screen</strong> (<em>Agregar a pantalla de inicio</em>).
+          </div>
+        </li>
+        <li>
+          <span class="step-badge">3</span>
+          <div>
+            Tap <strong>Add</strong> in the top-right corner. SplitGram will launch full-screen and work offline!
+          </div>
+        </li>
+      </ol>
+    </div>
+  </div>
+
   <!-- Toast notification -->
-  <div class="toast hidden" id="toast">
+  <div class="toast" id="toast" role="status" aria-live="polite">
     <span class="toast-icon">✓</span>
     <span class="toast-text" id="toastText">Done!</span>
   </div>
@@ -220,7 +420,6 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('Service Worker registered', reg))
           .catch(err => console.error('Service Worker registration failed:', err));
       });
     }
