@@ -432,17 +432,18 @@ body {
 /* Ratio selector */
 .ratio-selector {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .ratio-btn {
-  flex: 1;
+  flex: 1 1 82px;
   min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: var(--radius-md);
   border: 1.5px solid var(--border-color);
   background: transparent;
@@ -465,8 +466,8 @@ body {
 }
 
 .ratio-preview {
-  width: 18px;
-  max-height: 26px;
+  width: 16px;
+  max-height: 24px;
   border-radius: 3px;
   background: var(--gradient-main);
   flex-shrink: 0;
@@ -480,25 +481,30 @@ body {
 }
 
 .ratio-name {
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   font-weight: 700;
   font-family: 'Space Grotesk', sans-serif;
 }
 
 .ratio-desc {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   opacity: 0.7;
 }
 
 /* ---------- Strava / Garmin Overlay Card ---------- */
 .strava-card {
   background: var(--bg-card);
-  border: 1px solid rgba(252, 76, 2, 0.25);
+  border: 1px solid rgba(252, 76, 2, 0.3);
   border-radius: var(--radius-lg);
   padding: 22px 24px;
   margin-bottom: 28px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+.strava-body.disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .strava-header {
@@ -571,6 +577,12 @@ body {
   background: rgba(252, 76, 2, 0.14);
 }
 
+.strava-toggle-btn.active {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
 .strava-paste-btn {
   background: linear-gradient(135deg, #fc4c02, #f97316);
   border-color: transparent;
@@ -583,40 +595,65 @@ body {
   transform: translateY(-1px);
 }
 
-.strava-clear-btn {
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.3);
-}
-
-.strava-clear-btn.hidden {
-  display: none;
-}
-
 .strava-paste-row {
-  margin-bottom: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 16px;
 }
 
-.strava-raw-input {
-  width: 100%;
+.strava-paste-zone {
+  flex: 1;
+  min-height: 46px;
+  max-height: 80px;
+  overflow-y: auto;
   padding: 11px 14px;
   border-radius: var(--radius-md);
-  border: 1.5px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.25);
+  border: 1.5px dashed rgba(252, 76, 2, 0.45);
+  background: rgba(0, 0, 0, 0.3);
   color: var(--text-primary);
   font-family: inherit;
   font-size: 1rem;
+  line-height: 1.4;
   transition: var(--transition);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
-.strava-raw-input::placeholder {
-  color: var(--text-muted);
-  font-size: 0.85rem;
+.strava-paste-zone:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  pointer-events: none;
 }
 
-.strava-raw-input:focus {
+.strava-paste-zone:focus {
   outline: none;
+  border-style: solid;
   border-color: #fc4c02;
-  background: rgba(252, 76, 2, 0.05);
+  background: rgba(252, 76, 2, 0.08);
+}
+
+.strava-clear-sticker-btn {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.strava-clear-sticker-btn.hidden {
+  display: none;
+}
+
+.designs-selector {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
 }
 
 .strava-fields-grid {
@@ -666,7 +703,7 @@ body {
 
 .strava-options-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1.4fr 1fr 1.1fr;
   gap: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border-color);
@@ -674,8 +711,22 @@ body {
 
 .strava-options-grid .pill-btn {
   min-height: 42px;
-  font-size: 0.82rem;
-  padding: 6px 8px;
+  font-size: 0.78rem;
+  padding: 6px 6px;
+}
+
+.scale-slider-wrap {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 4px;
+}
+
+.scale-slider {
+  width: 100%;
+  accent-color: #fc4c02;
+  cursor: pointer;
+  height: 6px;
 }
 
 /* ---------- Preview ---------- */
@@ -719,11 +770,11 @@ body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  touch-action: none;
 }
 
 .original-preview.pannable {
   cursor: grab;
-  touch-action: none;
 }
 
 .original-preview.dragging {
@@ -741,6 +792,12 @@ body {
 
 .original-preview img.loaded {
   opacity: 1;
+}
+
+.preview-overlay-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Dynamic split lines */
@@ -1262,6 +1319,10 @@ body {
 
   .strava-card {
     padding: 18px;
+  }
+
+  .designs-selector {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .strava-fields-grid {

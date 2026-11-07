@@ -1,5 +1,5 @@
 /* ============================================
-   SplitGram — App Logic (Desktop, iPhone PWA & Strava Overlay)
+   SplitGram — App Logic (Stories 9:16, Carousels & Interactive Strava Overlay)
    ============================================ */
 
 (() => {
@@ -12,6 +12,7 @@
   const editorSection = document.getElementById('editorSection');
   const originalPreview = document.getElementById('originalPreview');
   const originalImg = document.getElementById('originalImg');
+  const previewOverlayCanvas = document.getElementById('previewOverlayCanvas');
   const splitLinesContainer = document.getElementById('splitLinesContainer');
   const panHandle = document.getElementById('panHandle');
   const previewCaption = document.getElementById('previewCaption');
@@ -25,17 +26,22 @@
   const resolutionSelector = document.getElementById('resolutionSelector');
 
   // Strava DOM Elements
+  const toggleStravaBtn = document.getElementById('toggleStravaBtn');
+  const toggleStravaText = document.getElementById('toggleStravaText');
+  const stravaBody = document.getElementById('stravaBody');
   const pasteStravaBtn = document.getElementById('pasteStravaBtn');
   const uploadStickerBtn = document.getElementById('uploadStickerBtn');
   const stickerInput = document.getElementById('stickerInput');
-  const clearStravaBtn = document.getElementById('clearStravaBtn');
-  const stravaRawInput = document.getElementById('stravaRawInput');
+  const clearStickerBtn = document.getElementById('clearStickerBtn');
+  const stravaPasteZone = document.getElementById('stravaPasteZone');
   const stravaTitleInput = document.getElementById('stravaTitleInput');
   const stravaDistInput = document.getElementById('stravaDistInput');
   const stravaPaceInput = document.getElementById('stravaPaceInput');
   const stravaTimeInput = document.getElementById('stravaTimeInput');
   const stravaStyleSelector = document.getElementById('stravaStyleSelector');
   const stravaPosSelector = document.getElementById('stravaPosSelector');
+  const stravaScaleInput = document.getElementById('stravaScaleInput');
+  const stravaScaleLabel = document.getElementById('stravaScaleLabel');
   const stravaTargetGroup = document.getElementById('stravaTargetGroup');
   const stravaTargetSelector = document.getElementById('stravaTargetSelector');
 
@@ -60,26 +66,34 @@
   // --- State ---
   let sourceImage = null;
   let originalFileName = 'image';
-  let panelCount = 2;
-  let currentRatio = { w: 4, h: 5 };
+  let panelCount = 1; // Default 1 (Story / Single photo)
+  let currentRatio = { w: 9, h: 16 }; // Default 9:16 Story
   let exportFormat = 'image/jpeg';
   let exportExt = 'jpg';
-  let resolutionMode = '1080'; // '1080' or 'max'
+  let resolutionMode = '1080';
 
   // Strava Overlay State
-  let stravaStyle = 'strava-classic'; // 'strava-classic' | 'glass-dark' | 'minimal-white'
-  let stravaPos = 'bottom-left'; // 'bottom-left' | 'bottom-center' | 'top-left' | 'center'
+  let stravaEnabled = true;
+  let stravaStyle = 'strava-classic'; // 'strava-classic' | 'story-vertical' | 'hero-km' | 'glass-dark' | 'minimal-white'
+  let stravaPos = 'bottom-left'; // 'bottom-left' | 'bottom-center' | 'center' | 'top-left' | 'custom'
+  let stravaScale = 1.0;
   let stravaTarget = 'first'; // 'first' | 'last' | 'all'
   let stravaStickerImg = null;
+
+  // Normalized custom drag coordinates (0..1 within target surface)
+  let customOverlayPos = null; // { xRatio, yRatio } of overlay top-left
+  // Last rendered overlay bounding box on previewOverlayCanvas (for hit-testing finger drag)
+  let lastPreviewOverlayBox = null; // { x, y, w, h, surfaceW, surfaceH }
 
   // Crop offsets: 0 = top/left, 0.5 = center, 1 = bottom/right
   let cropOffsetX = 0.5;
   let cropOffsetY = 0.5;
   let panAxis = 'none'; // 'vertical' | 'horizontal' | 'none'
 
-  let isDragging = false;
-  let dragStartCoord = 0;
+  let dragMode = 'none'; // 'crop' | 'overlay' | 'none'
+  let dragStartCoord = { x: 0, y: 0 };
   let dragStartOffset = 0.5;
+  let dragStartOverlayPos = { x: 0, y: 0 };
   let rafPending = false;
 
   let panelCanvases = [];
@@ -90,7 +104,7 @@
     if (toastTimeout) clearTimeout(toastTimeout);
     toastText.textContent = msg;
     toast.classList.add('visible');
-    toastTimeout = setTimeout(() => toast.classList.remove('visible'), 2500);
+    toastTimeout = setTimeout(() => toast.classList.remove('visible'), 2600);
   }
 
   function isStandalonePWA() {
@@ -117,6 +131,7 @@
   }
 
   function hasStravaOverlay() {
+    if (!stravaEnabled) return false;
     return Boolean(
       stravaStickerImg ||
       stravaTitleInput.value.trim() ||
@@ -126,18 +141,13 @@
     );
   }
 
-  function updateClearButtonVisibility() {
-    if (hasStravaOverlay() || stravaRawInput.value.trim()) {
-      clearStravaBtn.classList.remove('hidden');
-    } else {
-      clearStravaBtn.classList.add('hidden');
-    }
-  }
-
   // --- Smart Strava / Garmin Text Parser ---
   function parseStravaText(raw) {
     const text = (raw || '').trim();
     if (!text) return;
+
+    stravaEnabled = true;
+    updateStravaToggleUI();
 
     let remaining = text;
 
@@ -183,7 +193,7 @@
 
     const combinedTime = time && extra ? `${time} · ${extra}` : time || extra;
 
-    // 5. Extract Title from remaining text (cleaning labels & URLs)
+    // 5. Extract Title from remaining text
     let cleanTitle = remaining
       .replace(/https?:\/\/\S+/gi, '')
       .replace(/\b(distancia|distance|ritmo|pace|tiempo|time|moving time|desnivel|elevation|gain|strava|garmin)\b[:\s]*/gi, '')
@@ -196,13 +206,37 @@
     if (pace) stravaPaceInput.value = pace;
     if (combinedTime) stravaTimeInput.value = combinedTime;
 
-    // If user pasted a free-form string with no recognizable numbers at all, set it as title
     if (!dist && !pace && !combinedTime && !cleanTitle && text) {
       stravaTitleInput.value = text.slice(0, 40);
     }
 
-    updateClearButtonVisibility();
-    renderSplitPanels();
+    renderAll();
+  }
+
+  function loadStickerBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      stravaStickerImg = img;
+      stravaEnabled = true;
+      updateStravaToggleUI();
+      clearStickerBtn.classList.remove('hidden');
+      renderAll();
+      showToast('¡Sticker de Strava pegado sobre la foto!');
+    };
+    img.src = url;
+  }
+
+  function updateStravaToggleUI() {
+    if (stravaEnabled) {
+      toggleStravaBtn.classList.add('active');
+      toggleStravaText.textContent = '✓ Visible en foto';
+      stravaBody.classList.remove('disabled');
+    } else {
+      toggleStravaBtn.classList.remove('active');
+      toggleStravaText.textContent = 'Oculto en foto';
+      stravaBody.classList.add('disabled');
+    }
   }
 
   function getCropAndDimensions() {
@@ -238,8 +272,13 @@
 
     let panelW, panelH;
     if (resolutionMode === '1080') {
-      panelW = 1080;
-      panelH = Math.round(1080 * (currentRatio.h / currentRatio.w));
+      if (currentRatio.w === 16 && currentRatio.h === 9) {
+        panelW = 1920;
+        panelH = 1080;
+      } else {
+        panelW = 1080;
+        panelH = Math.round(1080 * (currentRatio.h / currentRatio.w));
+      }
     } else {
       panelW = Math.max(1, Math.round(nativePanelW));
       panelH = Math.max(1, Math.round(nativePanelH));
@@ -273,11 +312,11 @@
       const card = document.createElement('div');
       card.className = 'panel-card';
 
-      let labelPos = `Slide ${panelNum} of ${panelCount}`;
+      let labelPos = `Panel ${panelNum} de ${panelCount}`;
       if (panelCount === 1) {
-        labelPos = 'Single Photo';
+        labelPos = 'Imagen final lista para exportar';
       } else if (panelCount === 2) {
-        labelPos = i === 0 ? 'Left panel' : 'Right panel';
+        labelPos = i === 0 ? 'Panel izquierdo (1)' : 'Panel derecho (2)';
       }
 
       card.innerHTML = `
@@ -289,7 +328,7 @@
           <canvas id="canvas_${panelNum}"></canvas>
         </div>
         <div class="panel-actions">
-          <span class="panel-dims" data-dims="${i}">1080 × 1350</span>
+          <span class="panel-dims" data-dims="${i}">1080 × 1920</span>
           <button class="download-btn" type="button" data-download="${i}" aria-label="Download panel ${panelNum}">
             <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M9 3v9m0 0l-3-3m3 3l3-3M3 15h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>${exportExt.toUpperCase()}</span>
@@ -315,7 +354,7 @@
     });
 
     if (!info) {
-      exportDimsBadge.textContent = `1080 × 1350 px · ${extUpper}`;
+      exportDimsBadge.textContent = `1080 × 1920 px · ${extUpper}`;
       return;
     }
 
@@ -338,86 +377,65 @@
     const { imgAspect, targetAspect } = info;
     const lines = splitLinesContainer.querySelectorAll('.split-line');
 
+    let leftPercent = 0;
+    let rightPercent = 0;
+    let topPercent = 0;
+    let bottomPercent = 0;
+
     if (Math.abs(imgAspect - targetAspect) < 0.002) {
       panAxis = 'none';
-      cropTop.style.height = '0%';
-      cropBottom.style.height = '0%';
-      cropLeft.style.width = '0%';
-      cropRight.style.width = '0%';
-
       panHandle.classList.add('hidden');
       panHandle.classList.remove('mode-vertical', 'mode-horizontal');
       originalPreview.classList.remove('pannable');
-
-      lines.forEach((line, idx) => {
-        const pct = ((idx + 1) / panelCount) * 100;
-        line.style.left = `${pct}%`;
-        line.style.top = '0%';
-        line.style.bottom = '0%';
-      });
-
-      previewCaption.innerHTML =
-        'Exact aspect ratio match — the entire photo is preserved.';
     } else if (imgAspect > targetAspect) {
       panAxis = 'horizontal';
       const usedWidthRatio = targetAspect / imgAspect;
       const totalCropPercent = (1 - usedWidthRatio) * 100;
-      const leftPercent = cropOffsetX * totalCropPercent;
-      const rightPercent = (1 - cropOffsetX) * totalCropPercent;
+      leftPercent = cropOffsetX * totalCropPercent;
+      rightPercent = (1 - cropOffsetX) * totalCropPercent;
       const visiblePercent = 100 - totalCropPercent;
-
-      cropTop.style.height = '0%';
-      cropBottom.style.height = '0%';
-      cropLeft.style.width = `${leftPercent}%`;
-      cropRight.style.width = `${rightPercent}%`;
-
-      lines.forEach((line, idx) => {
-        const pct = leftPercent + visiblePercent * ((idx + 1) / panelCount);
-        line.style.left = `${pct}%`;
-        line.style.top = '0%';
-        line.style.bottom = '0%';
-      });
 
       panHandle.style.left = `${leftPercent + visiblePercent / 2}%`;
       panHandle.style.top = '50%';
       panHandle.classList.remove('hidden', 'mode-vertical');
       panHandle.classList.add('mode-horizontal');
       originalPreview.classList.add('pannable');
-
-      previewCaption.innerHTML =
-        'Drag the photo or purple handle <strong>left/right ↔</strong> to adjust which horizontal area is kept.';
     } else {
       panAxis = 'vertical';
       const usedHeightRatio = imgAspect / targetAspect;
       const totalCropPercent = (1 - usedHeightRatio) * 100;
-      const topPercent = cropOffsetY * totalCropPercent;
-      const bottomPercent = (1 - cropOffsetY) * totalCropPercent;
+      topPercent = cropOffsetY * totalCropPercent;
+      bottomPercent = (1 - cropOffsetY) * totalCropPercent;
       const visiblePercent = 100 - totalCropPercent;
-
-      cropLeft.style.width = '0%';
-      cropRight.style.width = '0%';
-      cropTop.style.height = `${topPercent}%`;
-      cropBottom.style.height = `${bottomPercent}%`;
-
-      lines.forEach((line, idx) => {
-        const pct = ((idx + 1) / panelCount) * 100;
-        line.style.left = `${pct}%`;
-        line.style.top = `${topPercent}%`;
-        line.style.bottom = `${bottomPercent}%`;
-      });
 
       panHandle.style.left = '50%';
       panHandle.style.top = `${topPercent + visiblePercent / 2}%`;
       panHandle.classList.remove('hidden', 'mode-horizontal');
       panHandle.classList.add('mode-vertical');
       originalPreview.classList.add('pannable');
-
-      previewCaption.innerHTML =
-        'Drag the photo or purple handle <strong>up/down ↕</strong> to adjust which vertical area is kept.';
     }
+
+    cropTop.style.height = `${topPercent}%`;
+    cropBottom.style.height = `${bottomPercent}%`;
+    cropLeft.style.width = `${leftPercent}%`;
+    cropRight.style.width = `${rightPercent}%`;
+
+    const visibleWPercent = 100 - leftPercent - rightPercent;
+    lines.forEach((line, idx) => {
+      const pct = leftPercent + visibleWPercent * ((idx + 1) / panelCount);
+      line.style.left = `${pct}%`;
+      line.style.top = `${topPercent}%`;
+      line.style.bottom = `${bottomPercent}%`;
+    });
+
+    // Position the live preview overlay canvas over the uncropped active area
+    previewOverlayCanvas.style.left = `${leftPercent}%`;
+    previewOverlayCanvas.style.top = `${topPercent}%`;
+    previewOverlayCanvas.style.width = `${visibleWPercent}%`;
+    previewOverlayCanvas.style.height = `${100 - topPercent - bottomPercent}%`;
   }
 
-  // --- Strava Canvas Drawing Engine ---
+  // --- Strava Canvas Drawing Engine (5 Activity Designs + Free Drag + Scale) ---
   function drawRoundedRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -432,15 +450,55 @@
     ctx.closePath();
   }
 
-  function drawStravaOverlayOnSurface(ctx, surfaceW, surfaceH, scaleBaseW) {
-    const scale = scaleBaseW / 1080;
-    const padX = Math.round(64 * scale);
-    const padY = Math.round(72 * scale);
+  function resolveOverlayOrigin(surfaceW, surfaceH, boxW, boxH, padX, padY) {
+    if (customOverlayPos) {
+      const x = Math.max(8, Math.min(surfaceW - boxW - 8, customOverlayPos.xRatio * surfaceW));
+      const y = Math.max(8, Math.min(surfaceH - boxH - 8, customOverlayPos.yRatio * surfaceH));
+      return { x, y };
+    }
 
-    // 1. If a transparent PNG sticker is loaded, draw it
+    let x = padX;
+    let y = surfaceH - padY - boxH;
+    if (stravaPos === 'bottom-center') {
+      x = (surfaceW - boxW) / 2;
+      y = surfaceH - padY - boxH;
+    } else if (stravaPos === 'top-left') {
+      x = padX;
+      y = padY;
+    } else if (stravaPos === 'center') {
+      x = (surfaceW - boxW) / 2;
+      y = (surfaceH - boxH) / 2;
+    }
+    return { x, y };
+  }
+
+  function drawStravaBadgePill(ctx, x, y, scale) {
+    const brandFont = `800 ${Math.round(17 * scale)}px "Inter", sans-serif`;
+    ctx.font = brandFont;
+    const badgeText = 'STRAVA';
+    const bw = ctx.measureText(badgeText).width + Math.round(16 * scale);
+    const bh = Math.round(25 * scale);
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    drawRoundedRect(ctx, x, y, bw, bh, Math.round(6 * scale));
+    ctx.fillStyle = '#FC4C02';
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(badgeText, x + Math.round(8 * scale), y + bh / 2 + 1);
+    ctx.restore();
+    return { bw, bh };
+  }
+
+  function drawStravaOverlayOnSurface(ctx, surfaceW, surfaceH, scaleBaseW) {
+    const scale = (scaleBaseW / 1080) * stravaScale;
+    const padX = Math.round(60 * (scaleBaseW / 1080));
+    const padY = Math.round(76 * (scaleBaseW / 1080));
+
+    // 1. If a transparent PNG sticker is loaded, draw it and return its bounding box
     if (stravaStickerImg) {
-      const maxStickerW = surfaceW * 0.55;
-      const maxStickerH = surfaceH * 0.45;
+      const maxStickerW = surfaceW * 0.55 * stravaScale;
+      const maxStickerH = surfaceH * 0.45 * stravaScale;
       const ratio = Math.min(
         maxStickerW / stravaStickerImg.naturalWidth,
         maxStickerH / stravaStickerImg.naturalHeight
@@ -448,18 +506,7 @@
       const sw = Math.round(stravaStickerImg.naturalWidth * ratio);
       const sh = Math.round(stravaStickerImg.naturalHeight * ratio);
 
-      let x = padX;
-      let y = surfaceH - padY - sh;
-      if (stravaPos === 'bottom-center') {
-        x = (surfaceW - sw) / 2;
-        y = surfaceH - padY - sh;
-      } else if (stravaPos === 'top-left') {
-        x = padX;
-        y = padY;
-      } else if (stravaPos === 'center') {
-        x = (surfaceW - sw) / 2;
-        y = (surfaceH - sh) / 2;
-      }
+      const { x, y } = resolveOverlayOrigin(surfaceW, surfaceH, sw, sh, padX, padY);
 
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
@@ -467,34 +514,179 @@
       ctx.shadowOffsetY = 4 * scale;
       ctx.drawImage(stravaStickerImg, x, y, sw, sh);
       ctx.restore();
+      return { x, y, w: sw, h: sh };
     }
 
-    // 2. Draw text metrics if any field is filled
+    // 2. Gather text metrics
     const title = stravaTitleInput.value.trim();
     const dist = stravaDistInput.value.trim();
     const pace = stravaPaceInput.value.trim();
     const time = stravaTimeInput.value.trim();
 
     const metrics = [];
-    if (dist) metrics.push({ label: 'DISTANCE', value: dist });
-    if (pace) metrics.push({ label: 'PACE', value: pace });
+    if (dist) metrics.push({ label: 'DISTANCIA', value: dist });
+    if (pace) metrics.push({ label: 'RITMO', value: pace });
     if (time) {
-      const label = time.includes('+') ? 'TIME / ELEV' : 'TIME';
+      const label = time.includes('+') ? 'TIEMPO / DESNIVEL' : 'TIEMPO';
       metrics.push({ label, value: time });
     }
 
-    if (!title && metrics.length === 0) return;
+    if (!title && metrics.length === 0) return null;
 
     ctx.save();
+    ctx.textBaseline = 'top';
 
-    const titleFont = `700 ${Math.round(30 * scale)}px "Space Grotesk", "Inter", sans-serif`;
-    const labelFont = `600 ${Math.round(19 * scale)}px "Inter", sans-serif`;
-    const valueFont = `800 ${Math.round(52 * scale)}px "Space Grotesk", "Inter", sans-serif`;
-    const brandFont = `800 ${Math.round(18 * scale)}px "Inter", sans-serif`;
+    const isCenteredAlign =
+      stravaPos === 'bottom-center' ||
+      stravaPos === 'center' ||
+      stravaStyle === 'hero-km' ||
+      stravaStyle === 'minimal-white';
 
-    const colGap = Math.round(48 * scale);
+    // --- DESIGN A: STORY VERTICAL TOWER ('story-vertical') ---
+    if (stravaStyle === 'story-vertical') {
+      const labelFont = `600 ${Math.round(18 * scale)}px "Inter", sans-serif`;
+      const valueFont = `800 ${Math.round(56 * scale)}px "Space Grotesk", "Inter", sans-serif`;
+      const titleFont = `700 ${Math.round(26 * scale)}px "Space Grotesk", "Inter", sans-serif`;
 
-    // Measure columns
+      const rowH = Math.round(86 * scale);
+      const headerH = Math.round(44 * scale);
+
+      let maxW = Math.round(200 * scale);
+      if (title) {
+        ctx.font = titleFont;
+        maxW = Math.max(maxW, ctx.measureText(title).width + Math.round(90 * scale));
+      }
+      metrics.forEach((m) => {
+        ctx.font = labelFont;
+        const lw = ctx.measureText(m.label).width;
+        ctx.font = valueFont;
+        const vw = ctx.measureText(m.value).width;
+        maxW = Math.max(maxW, lw, vw);
+      });
+
+      const boxW = maxW + Math.round(28 * scale);
+      const boxH = headerH + metrics.length * rowH;
+      const { x: startX, y: startY } = resolveOverlayOrigin(surfaceW, surfaceH, boxW, boxH, padX, padY);
+
+      // Vertical Strava Orange Accent Line
+      const barW = Math.round(6 * scale);
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 12 * scale;
+      drawRoundedRect(ctx, startX, startY, barW, boxH, barW / 2);
+      ctx.fillStyle = '#FC4C02';
+      ctx.fill();
+      ctx.restore();
+
+      const innerX = startX + Math.round(22 * scale);
+      let curY = startY;
+
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+      ctx.shadowBlur = 14 * scale;
+      ctx.shadowOffsetY = 2 * scale;
+
+      const { bw } = drawStravaBadgePill(ctx, innerX, curY + Math.round(2 * scale), scale);
+      if (title) {
+        ctx.font = titleFont;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(title, innerX + bw + Math.round(10 * scale), curY);
+      }
+      curY += headerH;
+
+      metrics.forEach((m) => {
+        ctx.font = labelFont;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillText(m.label, innerX, curY);
+
+        ctx.font = valueFont;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(m.value, innerX, curY + Math.round(20 * scale));
+        curY += rowH;
+      });
+
+      ctx.restore();
+      return { x: startX, y: startY, w: boxW, h: boxH };
+    }
+
+    // --- DESIGN B: HERO GIANT KM ('hero-km') ---
+    if (stravaStyle === 'hero-km') {
+      const heroVal = dist || (metrics[0] ? metrics[0].value : title);
+      const subParts = [];
+      if (pace) subParts.push(pace);
+      if (time) subParts.push(time);
+      const subText = subParts.join('   ·   ');
+
+      const titleFont = `700 ${Math.round(24 * scale)}px "Inter", sans-serif`;
+      const heroFont = `800 ${Math.round(92 * scale)}px "Space Grotesk", "Inter", sans-serif`;
+      const subFont = `700 ${Math.round(28 * scale)}px "Space Grotesk", "Inter", sans-serif`;
+
+      ctx.font = heroFont;
+      const heroW = ctx.measureText(heroVal).width;
+      ctx.font = subFont;
+      const subW = subText ? ctx.measureText(subText).width + Math.round(48 * scale) : 0;
+      ctx.font = titleFont;
+      const tW = title ? ctx.measureText(title.toUpperCase()).width + Math.round(90 * scale) : 0;
+
+      const boxW = Math.max(heroW, subW, tW, Math.round(260 * scale));
+      const boxH = Math.round((title ? 38 : 0) + 104 + (subText ? 54 : 0)) * scale;
+      const { x: startX, y: startY } = resolveOverlayOrigin(surfaceW, surfaceH, boxW, boxH, padX, padY);
+
+      let curY = startY;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
+      ctx.shadowBlur = 16 * scale;
+      ctx.shadowOffsetY = 3 * scale;
+
+      if (title) {
+        ctx.font = titleFont;
+        const labelStr = title.toUpperCase();
+        const lw = ctx.measureText(labelStr).width;
+        const totalHeaderW = lw + Math.round(84 * scale);
+        const hx = startX + (boxW - totalHeaderW) / 2;
+        const { bw } = drawStravaBadgePill(ctx, hx, curY, scale);
+        ctx.font = titleFont;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.fillText(labelStr, hx + bw + Math.round(10 * scale), curY + Math.round(1 * scale));
+        curY += Math.round(38 * scale);
+      }
+
+      ctx.font = heroFont;
+      ctx.fillStyle = '#FFFFFF';
+      const hx = startX + (boxW - heroW) / 2;
+      ctx.fillText(heroVal, hx, curY);
+      curY += Math.round(102 * scale);
+
+      if (subText) {
+        const pillW = subW;
+        const pillH = Math.round(46 * scale);
+        const px = startX + (boxW - pillW) / 2;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 14 * scale;
+        drawRoundedRect(ctx, px, curY, pillW, pillH, pillH / 2);
+        ctx.fillStyle = 'rgba(15, 15, 22, 0.78)';
+        ctx.fill();
+        ctx.lineWidth = Math.max(1, 1.5 * scale);
+        ctx.strokeStyle = 'rgba(252, 76, 2, 0.65)';
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.font = subFont;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(subText, px + Math.round(24 * scale), curY + pillH / 2 + 1);
+      }
+
+      ctx.restore();
+      return { x: startX, y: startY, w: boxW, h: boxH };
+    }
+
+    // --- DESIGNS C, D, E: HORIZONTAL COLUMNS ('strava-classic', 'glass-dark', 'minimal-white') ---
+    const titleFont = `700 ${Math.round(28 * scale)}px "Space Grotesk", "Inter", sans-serif`;
+    const labelFont = `600 ${Math.round(18 * scale)}px "Inter", sans-serif`;
+    const valueFont = `800 ${Math.round(50 * scale)}px "Space Grotesk", "Inter", sans-serif`;
+
+    const colGap = Math.round(44 * scale);
+
     let totalColsW = 0;
     const measuredCols = metrics.map((m) => {
       ctx.font = labelFont;
@@ -513,39 +705,26 @@
     const titleW = title ? ctx.measureText(title).width + Math.round(90 * scale) : 0;
     const contentW = Math.max(totalColsW, titleW, Math.round(220 * scale));
 
-    const hasTitleRow = Boolean(title || stravaStyle === 'strava-classic');
-    const titleRowH = hasTitleRow ? Math.round(44 * scale) : 0;
-    const metricsRowH = measuredCols.length > 0 ? Math.round(82 * scale) : 0;
+    const hasTitleRow = Boolean(title || stravaStyle !== 'minimal-white');
+    const titleRowH = hasTitleRow ? Math.round(42 * scale) : 0;
+    const metricsRowH = measuredCols.length > 0 ? Math.round(80 * scale) : 0;
     const contentH = titleRowH + metricsRowH;
 
-    const cardPadX = stravaStyle === 'glass-dark' ? Math.round(36 * scale) : 0;
-    const cardPadY = stravaStyle === 'glass-dark' ? Math.round(28 * scale) : 0;
-    const boxW = contentW + cardPadX * 2 + (stravaStyle === 'strava-classic' ? Math.round(22 * scale) : 0);
+    const cardPadX = stravaStyle === 'glass-dark' ? Math.round(34 * scale) : 0;
+    const cardPadY = stravaStyle === 'glass-dark' ? Math.round(26 * scale) : 0;
+    const leftBarOffset = stravaStyle === 'strava-classic' ? Math.round(22 * scale) : 0;
+    const boxW = contentW + cardPadX * 2 + leftBarOffset;
     const boxH = contentH + cardPadY * 2;
 
-    let startX = padX;
-    let startY = surfaceH - padY - boxH;
-    const isCentered = stravaPos === 'bottom-center' || stravaPos === 'center';
+    const { x: startX, y: startY } = resolveOverlayOrigin(surfaceW, surfaceH, boxW, boxH, padX, padY);
 
-    if (stravaPos === 'bottom-center') {
-      startX = (surfaceW - boxW) / 2;
-      startY = surfaceH - padY - boxH;
-    } else if (stravaPos === 'top-left') {
-      startX = padX;
-      startY = padY;
-    } else if (stravaPos === 'center') {
-      startX = (surfaceW - boxW) / 2;
-      startY = (surfaceH - boxH) / 2;
-    }
-
-    // Background / Accent
     if (stravaStyle === 'glass-dark') {
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-      ctx.shadowBlur = 28 * scale;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 26 * scale;
       ctx.shadowOffsetY = 8 * scale;
       drawRoundedRect(ctx, startX, startY, boxW, boxH, Math.round(22 * scale));
-      ctx.fillStyle = 'rgba(12, 12, 18, 0.78)';
+      ctx.fillStyle = 'rgba(12, 12, 18, 0.82)';
       ctx.fill();
       ctx.lineWidth = Math.max(1, 1.5 * scale);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
@@ -557,8 +736,7 @@
     let innerY = startY + cardPadY;
 
     if (stravaStyle === 'strava-classic') {
-      // Draw signature Strava orange vertical bar on the left
-      const barW = Math.round(7 * scale);
+      const barW = Math.round(6 * scale);
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
       ctx.shadowBlur = 12 * scale;
@@ -566,39 +744,25 @@
       ctx.fillStyle = '#FC4C02';
       ctx.fill();
       ctx.restore();
-      innerX += Math.round(22 * scale);
+      innerX += leftBarOffset;
     }
 
-    // Text drop shadow for legibility on outdoor photos
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.68)';
     ctx.shadowBlur = 14 * scale;
     ctx.shadowOffsetY = 2 * scale;
-    ctx.textBaseline = 'top';
 
-    // Title Row
     if (hasTitleRow) {
       let curTitleX = innerX;
-      if (isCentered && stravaStyle !== 'strava-classic') {
-        const fullTitleText = title || 'STRAVA ACTIVITY';
+      if (isCenteredAlign && stravaStyle !== 'strava-classic') {
         ctx.font = titleFont;
-        curTitleX = innerX + (contentW - ctx.measureText(fullTitleText).width) / 2;
+        const tWidth = title ? ctx.measureText(title).width : 0;
+        const badgeWidth = stravaStyle !== 'minimal-white' ? Math.round(82 * scale) : 0;
+        curTitleX = innerX + Math.max(0, (contentW - (tWidth + badgeWidth)) / 2);
       }
 
       if (stravaStyle !== 'minimal-white') {
-        // Draw small orange Strava pill
-        ctx.font = brandFont;
-        const badgeText = 'STRAVA';
-        const bw = ctx.measureText(badgeText).width + Math.round(16 * scale);
-        const bh = Math.round(26 * scale);
-        ctx.save();
-        ctx.shadowColor = 'transparent';
-        drawRoundedRect(ctx, curTitleX, innerY + Math.round(3 * scale), bw, bh, Math.round(6 * scale));
-        ctx.fillStyle = '#FC4C02';
-        ctx.fill();
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(badgeText, curTitleX + Math.round(8 * scale), innerY + Math.round(7 * scale));
-        ctx.restore();
-        curTitleX += bw + Math.round(12 * scale);
+        const { bw } = drawStravaBadgePill(ctx, curTitleX, innerY + Math.round(3 * scale), scale);
+        curTitleX += bw + Math.round(10 * scale);
       }
 
       if (title) {
@@ -609,30 +773,84 @@
       innerY += titleRowH;
     }
 
-    // Metrics Row
     if (measuredCols.length > 0) {
       let colX = innerX;
-      if (isCentered && stravaStyle !== 'strava-classic') {
+      if (isCenteredAlign && stravaStyle !== 'strava-classic') {
         colX = innerX + (contentW - totalColsW) / 2;
       }
 
-      measuredCols.forEach((col) => {
+      measuredCols.forEach((col, idx) => {
         ctx.font = labelFont;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.fillText(col.label, colX, innerY);
 
         ctx.font = valueFont;
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(col.value, colX, innerY + Math.round(24 * scale));
+        ctx.fillText(col.value, colX, innerY + Math.round(22 * scale));
+
+        if (stravaStyle === 'minimal-white' && idx < measuredCols.length - 1) {
+          const divX = colX + col.colW + colGap / 2;
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.lineWidth = Math.max(1, 1.5 * scale);
+          ctx.beginPath();
+          ctx.moveTo(divX, innerY + Math.round(6 * scale));
+          ctx.lineTo(divX, innerY + Math.round(66 * scale));
+          ctx.stroke();
+          ctx.restore();
+        }
 
         colX += col.colW + colGap;
       });
     }
 
     ctx.restore();
+    return { x: startX, y: startY, w: boxW, h: boxH };
   }
 
-  // --- Splitting Logic (Automatic & Live) ---
+  // --- Render Both Live Top Preview Overlay & Split Export Canvases ---
+  function renderPreviewOverlay() {
+    const info = getCropAndDimensions();
+    if (!info) return;
+
+    const { panelW, panelH } = info;
+    const totalW = panelCount * panelW;
+    const totalH = panelH;
+
+    if (previewOverlayCanvas.width !== totalW) previewOverlayCanvas.width = totalW;
+    if (previewOverlayCanvas.height !== totalH) previewOverlayCanvas.height = totalH;
+
+    const pCtx = previewOverlayCanvas.getContext('2d');
+    pCtx.clearRect(0, 0, totalW, totalH);
+
+    if (!hasStravaOverlay()) {
+      lastPreviewOverlayBox = null;
+      return;
+    }
+
+    let box = null;
+    if (panelCount === 1 || stravaTarget === 'first') {
+      box = drawStravaOverlayOnSurface(pCtx, panelW, panelH, panelW);
+      if (box) {
+        lastPreviewOverlayBox = { ...box, offsetX: 0, surfaceW: panelW, surfaceH: panelH, totalW, totalH };
+      }
+    } else if (stravaTarget === 'last') {
+      const offsetX = (panelCount - 1) * panelW;
+      pCtx.save();
+      pCtx.translate(offsetX, 0);
+      box = drawStravaOverlayOnSurface(pCtx, panelW, panelH, panelW);
+      pCtx.restore();
+      if (box) {
+        lastPreviewOverlayBox = { ...box, offsetX, surfaceW: panelW, surfaceH: panelH, totalW, totalH };
+      }
+    } else {
+      box = drawStravaOverlayOnSurface(pCtx, totalW, totalH, panelW);
+      if (box) {
+        lastPreviewOverlayBox = { ...box, offsetX: 0, surfaceW: totalW, surfaceH: totalH, totalW, totalH };
+      }
+    }
+  }
+
   function renderSplitPanels() {
     const info = getCropAndDimensions();
     if (!info) return;
@@ -682,10 +900,16 @@
     updateExportBadges();
   }
 
+  function renderAll() {
+    updateCropOverlay();
+    renderPreviewOverlay();
+    renderSplitPanels();
+  }
+
   // --- File Loading ---
   function loadFile(file) {
     if (!file || !file.type.startsWith('image/')) {
-      showToast('Please select a valid image file');
+      showToast('Selecciona un archivo de imagen válido');
       return;
     }
 
@@ -701,7 +925,7 @@
         showEditor(file.name, img.naturalWidth, img.naturalHeight);
       };
       img.onerror = () => {
-        showToast('Could not decode this image format');
+        showToast('No se pudo abrir este formato de imagen');
       };
       img.src = e.target.result;
     };
@@ -717,8 +941,10 @@
 
     originalImg.onload = () => {
       originalImg.classList.add('loaded');
-      updateCropOverlay();
-      renderSplitPanels();
+      renderAll();
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => renderAll());
+      }
     };
     originalImg.src = sourceImage.src;
 
@@ -726,7 +952,7 @@
     editorSection.classList.remove('hidden');
   }
 
-  // --- 2D Pan / Drag Interaction (Vertical & Horizontal) ---
+  // --- Unified Interactive Drag (Move Strava Overlay OR Pan Photo Crop!) ---
   function getPointerCoords(e) {
     if (e.touches && e.touches.length > 0) {
       return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -734,73 +960,139 @@
     return { x: e.clientX, y: e.clientY };
   }
 
-  function onDragStart(e) {
-    if (panAxis === 'none' || !sourceImage) return;
+  function hitTestStravaOverlay(clientX, clientY) {
+    if (!hasStravaOverlay() || !lastPreviewOverlayBox) return false;
+    const rect = previewOverlayCanvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
 
-    isDragging = true;
+    const relX = (clientX - rect.left) / rect.width;
+    const relY = (clientY - rect.top) / rect.height;
+    if (relX < 0 || relX > 1 || relY < 0 || relY > 1) return false;
+
+    const canvasX = relX * lastPreviewOverlayBox.totalW;
+    const canvasY = relY * lastPreviewOverlayBox.totalH;
+
+    const hitPad = 24;
+    const bx = lastPreviewOverlayBox.offsetX + lastPreviewOverlayBox.x - hitPad;
+    const by = lastPreviewOverlayBox.y - hitPad;
+    const bw = lastPreviewOverlayBox.w + hitPad * 2;
+    const bh = lastPreviewOverlayBox.h + hitPad * 2;
+
+    return canvasX >= bx && canvasX <= bx + bw && canvasY >= by && canvasY <= by + bh;
+  }
+
+  function onDragStart(e) {
+    if (!sourceImage) return;
     const coords = getPointerCoords(e);
-    if (panAxis === 'horizontal') {
-      dragStartCoord = coords.x;
-      dragStartOffset = cropOffsetX;
-    } else {
-      dragStartCoord = coords.y;
-      dragStartOffset = cropOffsetY;
+    const clickedHandle = e.target.closest('#panHandle');
+
+    // Check if the user touched/clicked directly on the Strava Overlay
+    if (!clickedHandle && hitTestStravaOverlay(coords.x, coords.y)) {
+      dragMode = 'overlay';
+      dragStartCoord = coords;
+      dragStartOverlayPos = {
+        x: lastPreviewOverlayBox.x,
+        y: lastPreviewOverlayBox.y
+      };
+      originalPreview.classList.add('dragging');
+      if (e.cancelable) e.preventDefault();
+      return;
     }
 
+    // Otherwise pan the photo crop
+    if (panAxis === 'none') return;
+    dragMode = 'crop';
+    dragStartCoord = coords;
+    dragStartOffset = panAxis === 'horizontal' ? cropOffsetX : cropOffsetY;
     originalPreview.classList.add('dragging');
-    if (e.type === 'mousedown') e.preventDefault();
+    if (e.type === 'mousedown' && e.cancelable) e.preventDefault();
   }
 
   function onDragMove(e) {
-    if (!isDragging || panAxis === 'none' || !sourceImage) return;
+    if (dragMode === 'none' || !sourceImage) return;
 
     const coords = getPointerCoords(e);
-    const info = getCropAndDimensions();
-    if (!info) return;
 
-    if (panAxis === 'horizontal') {
-      const deltaX = coords.x - dragStartCoord;
-      const previewWidth = originalPreview.offsetWidth;
-      const usedWidthRatio = info.targetAspect / info.imgAspect;
-      const slackPixels = previewWidth * (1 - usedWidthRatio);
-      if (slackPixels <= 0) return;
+    if (dragMode === 'overlay' && lastPreviewOverlayBox) {
+      const rect = previewOverlayCanvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
 
-      cropOffsetX = Math.max(0, Math.min(1, dragStartOffset + deltaX / slackPixels));
-    } else {
-      const deltaY = coords.y - dragStartCoord;
-      const previewHeight = originalPreview.offsetHeight;
-      const usedHeightRatio = info.imgAspect / info.targetAspect;
-      const slackPixels = previewHeight * (1 - usedHeightRatio);
-      if (slackPixels <= 0) return;
+      const scaleX = lastPreviewOverlayBox.totalW / rect.width;
+      const scaleY = lastPreviewOverlayBox.totalH / rect.height;
 
-      cropOffsetY = Math.max(0, Math.min(1, dragStartOffset + deltaY / slackPixels));
+      const deltaCanvasX = (coords.x - dragStartCoord.x) * scaleX;
+      const deltaCanvasY = (coords.y - dragStartCoord.y) * scaleY;
+
+      const newX = dragStartOverlayPos.x + deltaCanvasX;
+      const newY = dragStartOverlayPos.y + deltaCanvasY;
+
+      customOverlayPos = {
+        xRatio: Math.max(0, Math.min(1, newX / lastPreviewOverlayBox.surfaceW)),
+        yRatio: Math.max(0, Math.min(1, newY / lastPreviewOverlayBox.surfaceH))
+      };
+
+      stravaPosSelector.querySelectorAll('.pill-btn').forEach((b) => b.classList.remove('active'));
+
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          renderPreviewOverlay();
+          renderSplitPanels();
+          rafPending = false;
+        });
+      }
+      if (e.cancelable) e.preventDefault();
+      return;
     }
 
-    updateCropOverlay();
+    if (dragMode === 'crop') {
+      const info = getCropAndDimensions();
+      if (!info) return;
 
-    if (!rafPending) {
-      rafPending = true;
-      requestAnimationFrame(() => {
-        renderSplitPanels();
-        rafPending = false;
-      });
+      if (panAxis === 'horizontal') {
+        const deltaX = coords.x - dragStartCoord.x;
+        const previewWidth = originalPreview.offsetWidth;
+        const usedWidthRatio = info.targetAspect / info.imgAspect;
+        const slackPixels = previewWidth * (1 - usedWidthRatio);
+        if (slackPixels <= 0) return;
+
+        cropOffsetX = Math.max(0, Math.min(1, dragStartOffset + deltaX / slackPixels));
+      } else {
+        const deltaY = coords.y - dragStartCoord.y;
+        const previewHeight = originalPreview.offsetHeight;
+        const usedHeightRatio = info.imgAspect / info.targetAspect;
+        const slackPixels = previewHeight * (1 - usedHeightRatio);
+        if (slackPixels <= 0) return;
+
+        cropOffsetY = Math.max(0, Math.min(1, dragStartOffset + deltaY / slackPixels));
+      }
+
+      updateCropOverlay();
+
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          renderSplitPanels();
+          rafPending = false;
+        });
+      }
+
+      if (e.cancelable) e.preventDefault();
     }
-
-    if (e.cancelable) e.preventDefault();
   }
 
   function onDragEnd() {
-    if (!isDragging) return;
-    isDragging = false;
+    if (dragMode === 'none') return;
+    dragMode = 'none';
     originalPreview.classList.remove('dragging');
-    renderSplitPanels();
+    renderAll();
   }
 
   originalPreview.addEventListener('mousedown', onDragStart);
   window.addEventListener('mousemove', onDragMove);
   window.addEventListener('mouseup', onDragEnd);
 
-  originalPreview.addEventListener('touchstart', onDragStart, { passive: true });
+  originalPreview.addEventListener('touchstart', onDragStart, { passive: false });
   window.addEventListener('touchmove', onDragMove, { passive: false });
   window.addEventListener('touchend', onDragEnd);
 
@@ -821,7 +1113,7 @@
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-    showToast(`Panel ${panelNum} downloaded!`);
+    showToast(`¡Imagen ${panelNum} descargada!`);
   }
 
   async function shareOrDownloadAll() {
@@ -839,9 +1131,9 @@
         await navigator.share({
           files,
           title: 'SplitGram',
-          text: `${panelCount} photo(s) from SplitGram`
+          text: `${panelCount} imagen(es) de SplitGram`
         });
-        showToast('Ready in Share Sheet!');
+        showToast('¡Listo para guardar en Fotos!');
         return;
       } catch (err) {
         if (err.name === 'AbortError') return;
@@ -856,13 +1148,13 @@
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     }
-    showToast(`Downloaded ${files.length} panel(s)!`);
+    showToast(`¡${files.length} imagen(es) descargada(s)!`);
   }
 
   async function downloadZip() {
     if (!sourceImage || panelCanvases.length === 0) return;
     if (typeof JSZip === 'undefined') {
-      showToast('ZIP library unavailable offline — use Share/Download button');
+      showToast('Usa el botón Guardar / Compartir');
       return;
     }
 
@@ -881,10 +1173,16 @@
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1500);
 
-    showToast('ZIP downloaded!');
+    showToast('¡ZIP descargado!');
   }
 
-  // --- Strava Event Listeners ---
+  // --- Strava Event Listeners (Clipboard API + Native iOS Paste Event) ---
+  toggleStravaBtn.addEventListener('click', () => {
+    stravaEnabled = !stravaEnabled;
+    updateStravaToggleUI();
+    renderAll();
+  });
+
   pasteStravaBtn.addEventListener('click', async () => {
     try {
       if (navigator.clipboard && navigator.clipboard.read) {
@@ -893,15 +1191,7 @@
           const imageType = item.types.find((t) => t.startsWith('image/'));
           if (imageType) {
             const blob = await item.getType(imageType);
-            const url = URL.createObjectURL(blob);
-            const img = new Image();
-            img.onload = () => {
-              stravaStickerImg = img;
-              updateClearButtonVisibility();
-              renderSplitPanels();
-              showToast('Strava sticker pasted onto photo!');
-            };
-            img.src = url;
+            loadStickerBlob(blob);
             return;
           }
         }
@@ -909,18 +1199,54 @@
       if (navigator.clipboard && navigator.clipboard.readText) {
         const text = await navigator.clipboard.readText();
         if (text && text.trim()) {
-          stravaRawInput.value = text.trim();
+          stravaPasteZone.textContent = text.trim();
           parseStravaText(text);
-          showToast('Strava activity pasted!');
+          showToast('¡Actividad de Strava aplicada!');
           return;
         }
       }
-      stravaRawInput.focus();
-      showToast('Long-press the text box to paste your activity');
+      stravaPasteZone.focus();
+      showToast('Mantén presionado el recuadro punteado y toca "Pegar"');
     } catch {
-      stravaRawInput.focus();
-      showToast('Paste your Strava text directly into the box below');
+      stravaPasteZone.focus();
+      showToast('Toca el recuadro punteado y selecciona "Pegar"');
     }
+  });
+
+  // Handle native iOS / Desktop Paste event (supports both Strava PNG stickers and text!)
+  function handlePasteEvent(e) {
+    const cd = e.clipboardData;
+    if (!cd) return;
+
+    // 1. Check for pasted image (e.g. Strava transparent sticker copied from iOS app)
+    if (cd.items) {
+      for (let i = 0; i < cd.items.length; i++) {
+        const item = cd.items[i];
+        if (item.type && item.type.startsWith('image/')) {
+          const blob = item.getAsFile();
+          if (blob) {
+            e.preventDefault();
+            stravaPasteZone.textContent = '✓ Sticker PNG de Strava cargado';
+            loadStickerBlob(blob);
+            return;
+          }
+        }
+      }
+    }
+
+    // 2. Check for pasted text
+    const text = cd.getData('text/plain');
+    if (text && text.trim()) {
+      e.preventDefault();
+      stravaPasteZone.textContent = text.trim();
+      parseStravaText(text);
+      showToast('¡Datos de Strava actualizados!');
+    }
+  }
+
+  stravaPasteZone.addEventListener('paste', handlePasteEvent);
+  stravaPasteZone.addEventListener('input', () => {
+    parseStravaText(stravaPasteZone.textContent);
   });
 
   uploadStickerBtn.addEventListener('click', () => stickerInput.click());
@@ -928,41 +1254,23 @@
   stickerInput.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        stravaStickerImg = img;
-        updateClearButtonVisibility();
-        renderSplitPanels();
-        showToast('Strava sticker added!');
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+    loadStickerBlob(file);
   });
 
-  clearStravaBtn.addEventListener('click', () => {
-    stravaRawInput.value = '';
-    stravaTitleInput.value = '';
-    stravaDistInput.value = '';
-    stravaPaceInput.value = '';
-    stravaTimeInput.value = '';
+  clearStickerBtn.addEventListener('click', () => {
     stravaStickerImg = null;
     stickerInput.value = '';
-    updateClearButtonVisibility();
-    renderSplitPanels();
-    showToast('Strava overlay cleared');
-  });
-
-  stravaRawInput.addEventListener('input', (e) => {
-    parseStravaText(e.target.value);
+    stravaPasteZone.textContent = '';
+    clearStickerBtn.classList.add('hidden');
+    renderAll();
+    showToast('Sticker eliminado');
   });
 
   [stravaTitleInput, stravaDistInput, stravaPaceInput, stravaTimeInput].forEach((input) => {
     input.addEventListener('input', () => {
-      updateClearButtonVisibility();
-      renderSplitPanels();
+      stravaEnabled = true;
+      updateStravaToggleUI();
+      renderAll();
     });
   });
 
@@ -972,7 +1280,9 @@
     stravaStyleSelector.querySelectorAll('.pill-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     stravaStyle = btn.dataset.style;
-    renderSplitPanels();
+    stravaEnabled = true;
+    updateStravaToggleUI();
+    renderAll();
   });
 
   stravaPosSelector.addEventListener('click', (e) => {
@@ -981,7 +1291,15 @@
     stravaPosSelector.querySelectorAll('.pill-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     stravaPos = btn.dataset.pos;
-    renderSplitPanels();
+    customOverlayPos = null; // Reset custom finger drag to snap to preset
+    renderAll();
+  });
+
+  stravaScaleInput.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10) || 100;
+    stravaScaleLabel.textContent = `${val}%`;
+    stravaScale = val / 100;
+    renderAll();
   });
 
   stravaTargetSelector.addEventListener('click', (e) => {
@@ -990,7 +1308,7 @@
     stravaTargetSelector.querySelectorAll('.pill-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     stravaTarget = btn.dataset.target;
-    renderSplitPanels();
+    renderAll();
   });
 
   // --- Core Event Listeners ---
@@ -1042,14 +1360,13 @@
     panelCountSelector.querySelectorAll('.pill-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
 
-    panelCount = parseInt(btn.dataset.panels, 10) || 2;
+    panelCount = parseInt(btn.dataset.panels, 10) || 1;
     cropOffsetX = 0.5;
     cropOffsetY = 0.5;
 
     buildSplitLines();
     buildPanelCards();
-    updateCropOverlay();
-    renderSplitPanels();
+    renderAll();
   });
 
   ratioSelector.addEventListener('click', (e) => {
@@ -1064,8 +1381,7 @@
     cropOffsetX = 0.5;
     cropOffsetY = 0.5;
 
-    updateCropOverlay();
-    renderSplitPanels();
+    renderAll();
   });
 
   formatSelector.addEventListener('click', (e) => {
@@ -1088,7 +1404,7 @@
     btn.classList.add('active');
 
     resolutionMode = btn.dataset.res;
-    renderSplitPanels();
+    renderAll();
   });
 
   shareBtn.addEventListener('click', shareOrDownloadAll);
@@ -1113,7 +1429,7 @@
 
   // --- Init ---
   if (!supportsFileShare()) {
-    shareBtnText.textContent = 'Download All Panels';
+    shareBtnText.textContent = 'Descargar imagen(es)';
   }
   updateExportBadges();
 })();

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-  <title>SplitGram — Seamless Carousel Splitter for Instagram</title>
-  <meta name="description" content="Split any horizontal or panoramic photo into 2 to 5 seamless panels for Instagram carousels. Zero quality loss, 100% local in your browser & iPhone ready.">
+  <title>SplitGram — Stories, Carousels & Strava Overlay</title>
+  <meta name="description" content="Add Strava/Garmin activity overlays to your running photos for 9:16 Instagram Stories or split horizontal photos into 2–5 seamless carousel panels.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -60,7 +60,7 @@
         </div>
         <h1 class="logo-text">Split<span>Gram</span></h1>
       </div>
-      <p class="subtitle">Split your horizontal or panoramic photo into seamless panels for Instagram carousels</p>
+      <p class="subtitle">Crea historias 9:16 o carruseles para Instagram con tus actividades de Strava y Garmin</p>
     </header>
 
     <!-- Upload Zone -->
@@ -81,8 +81,8 @@
               </defs>
             </svg>
           </div>
-          <p class="upload-text">Tap to select from Photos or drag here</p>
-          <p class="upload-subtext">100% private — processed directly on your device</p>
+          <p class="upload-text">Toca para elegir una foto o arrástrala aquí</p>
+          <p class="upload-subtext">100% privado — se procesa directamente en tu iPhone / navegador</p>
           <div class="upload-formats">JPG · PNG · WebP · HEIC</div>
         </div>
         <input type="file" id="fileInput" accept="image/*" hidden>
@@ -103,7 +103,7 @@
         </div>
         <button class="change-image-btn" id="changeImageBtn" type="button" aria-label="Change image">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 2.5l-11 11M13.5 2.5h-5m5 0v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Change photo
+          Cambiar foto
         </button>
       </div>
 
@@ -112,10 +112,10 @@
         <div class="controls-grid">
           <!-- Panel Count Selector -->
           <div class="control-group">
-            <label class="control-label">Panels (1 = Single Photo · 2–5 = Carousel)</label>
+            <label class="control-label">Paneles (1 = Historia / Foto única · 2–5 = Carrusel)</label>
             <div class="pill-selector" id="panelCountSelector" role="radiogroup" aria-label="Number of panels">
-              <button class="pill-btn" type="button" data-panels="1">1</button>
-              <button class="pill-btn active" type="button" data-panels="2">2</button>
+              <button class="pill-btn active" type="button" data-panels="1">1</button>
+              <button class="pill-btn" type="button" data-panels="2">2</button>
               <button class="pill-btn" type="button" data-panels="3">3</button>
               <button class="pill-btn" type="button" data-panels="4">4</button>
               <button class="pill-btn" type="button" data-panels="5">5</button>
@@ -124,27 +124,41 @@
 
           <!-- Aspect Ratio Selector -->
           <div class="control-group">
-            <label class="control-label">Panel aspect ratio</label>
+            <label class="control-label">Formato / Proporción</label>
             <div class="ratio-selector" id="ratioSelector" role="radiogroup" aria-label="Panel aspect ratio">
-              <button class="ratio-btn active" type="button" data-ratio="4:5">
+              <button class="ratio-btn active" type="button" data-ratio="9:16">
+                <div class="ratio-preview" style="aspect-ratio: 9/16;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">9:16</span>
+                  <span class="ratio-desc">Historia</span>
+                </div>
+              </button>
+              <button class="ratio-btn" type="button" data-ratio="4:5">
                 <div class="ratio-preview" style="aspect-ratio: 4/5;"></div>
                 <div class="ratio-info">
                   <span class="ratio-name">4:5</span>
-                  <span class="ratio-desc">Portrait</span>
+                  <span class="ratio-desc">Post IG</span>
                 </div>
               </button>
               <button class="ratio-btn" type="button" data-ratio="3:4">
                 <div class="ratio-preview" style="aspect-ratio: 3/4;"></div>
                 <div class="ratio-info">
                   <span class="ratio-name">3:4</span>
-                  <span class="ratio-desc">Grid 2025+</span>
+                  <span class="ratio-desc">Grid</span>
                 </div>
               </button>
               <button class="ratio-btn" type="button" data-ratio="1:1">
                 <div class="ratio-preview" style="aspect-ratio: 1/1;"></div>
                 <div class="ratio-info">
                   <span class="ratio-name">1:1</span>
-                  <span class="ratio-desc">Square</span>
+                  <span class="ratio-desc">Cuadrado</span>
+                </div>
+              </button>
+              <button class="ratio-btn" type="button" data-ratio="16:9">
+                <div class="ratio-preview" style="aspect-ratio: 16/9;"></div>
+                <div class="ratio-info">
+                  <span class="ratio-name">16:9</span>
+                  <span class="ratio-desc">Horizontal</span>
                 </div>
               </button>
             </div>
@@ -152,33 +166,33 @@
 
           <!-- Export Format Selector -->
           <div class="control-group">
-            <label class="control-label">Export format</label>
+            <label class="control-label">Formato de salida</label>
             <div class="pill-selector" id="formatSelector" role="radiogroup" aria-label="Export format">
               <button class="pill-btn active" type="button" data-format="image/jpeg" data-ext="jpg">
                 <span>JPG</span>
-                <small>Best for iOS/IG</small>
+                <small>Ideal iPhone/IG</small>
               </button>
               <button class="pill-btn" type="button" data-format="image/png" data-ext="png">
                 <span>PNG</span>
-                <small>Lossless</small>
+                <small>Sin pérdida</small>
               </button>
               <button class="pill-btn" type="button" data-format="image/webp" data-ext="webp">
                 <span>WebP</span>
-                <small>Light</small>
+                <small>Ligero</small>
               </button>
             </div>
           </div>
 
           <!-- Resolution Selector -->
           <div class="control-group">
-            <label class="control-label">Output resolution</label>
+            <label class="control-label">Resolución</label>
             <div class="pill-selector" id="resolutionSelector" role="radiogroup" aria-label="Output resolution">
               <button class="pill-btn active" type="button" data-res="1080">
                 <span>IG 1080p</span>
-                <small>1080px / panel</small>
+                <small>Óptimo IG</small>
               </button>
               <button class="pill-btn" type="button" data-res="max">
-                <span>Max Native</span>
+                <span>Max Nativa</span>
                 <small>Original px</small>
               </button>
             </div>
@@ -196,107 +210,125 @@
               </svg>
             </span>
             <div>
-              <h3 class="strava-title">Strava / Garmin Activity Overlay</h3>
-              <p class="strava-subtitle">Paste your run stats or transparent sticker directly onto the photo</p>
+              <h3 class="strava-title">Actividad de Strava / Garmin</h3>
+              <p class="strava-subtitle">Elige un diseño, pega tu carrera (texto o sticker) y muévela sobre la foto</p>
             </div>
           </div>
           <div class="strava-header-actions">
+            <button class="strava-action-btn strava-toggle-btn active" id="toggleStravaBtn" type="button">
+              <span id="toggleStravaText">✓ Visible en foto</span>
+            </button>
             <button class="strava-action-btn strava-paste-btn" id="pasteStravaBtn" type="button">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-              <span>Paste Activity</span>
+              <span>Pegar portapapeles</span>
             </button>
-            <button class="strava-action-btn" id="uploadStickerBtn" type="button" title="Overlay a transparent PNG sticker from Strava">
+            <button class="strava-action-btn" id="uploadStickerBtn" type="button" title="Subir un sticker PNG transparente de Strava">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              <span>Sticker PNG</span>
+              <span>Subir Sticker</span>
             </button>
             <input type="file" id="stickerInput" accept="image/png,image/webp,image/*" hidden>
-            <button class="strava-action-btn strava-clear-btn hidden" id="clearStravaBtn" type="button">
-              Clear
-            </button>
           </div>
         </div>
 
-        <div class="strava-body">
-          <!-- Smart Paste Input -->
+        <div class="strava-body" id="stravaBody">
+          <!-- iOS ContentEditable Paste Zone (accepts BOTH copied Strava PNG stickers and copied text on iPhone!) -->
           <div class="strava-paste-row">
-            <input
-              type="text"
-              id="stravaRawInput"
-              class="strava-raw-input"
-              placeholder="Paste text here (e.g. Morning Run · 10.5 km · 5:12 /km · 54m 42s) or edit fields below..."
-              aria-label="Paste raw Strava activity text"
-            >
+            <div
+              id="stravaPasteZone"
+              class="strava-paste-zone"
+              contenteditable="true"
+              role="textbox"
+              aria-label="Toca aquí y pega tu sticker o texto de Strava"
+              data-placeholder="📲 En iPhone: Toca aquí y dale 'Pegar' para pegar el Sticker copiado de Strava o texto (ej. 10.5 km · 5:12 /km · 54m 42s)..."
+            ></div>
+            <button class="strava-clear-sticker-btn hidden" id="clearStickerBtn" type="button">Quitar Sticker PNG</button>
           </div>
 
-          <!-- 4 Editable Metric Fields -->
+          <!-- 5 Activity Designs Selector -->
+          <div class="control-group" style="margin-bottom: 16px;">
+            <label class="control-label">Diseño de la actividad (Toca para cambiar estilo)</label>
+            <div class="designs-selector" id="stravaStyleSelector">
+              <button class="pill-btn active" type="button" data-style="strava-classic">
+                <span>Clásico</span>
+                <small>3 columnas</small>
+              </button>
+              <button class="pill-btn" type="button" data-style="story-vertical">
+                <span>Historia 9:16</span>
+                <small>Torre vertical</small>
+              </button>
+              <button class="pill-btn" type="button" data-style="hero-km">
+                <span>Gran KM</span>
+                <small>Distancia gigante</small>
+              </button>
+              <button class="pill-btn" type="button" data-style="glass-dark">
+                <span>Tarjeta Pro</span>
+                <small>Cristal oscuro</small>
+              </button>
+              <button class="pill-btn" type="button" data-style="minimal-white">
+                <span>Minimal</span>
+                <small>Limpio</small>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 Editable Metric Fields (Pre-filled with editable values so the overlay is immediately visible!) -->
           <div class="strava-fields-grid">
             <div class="strava-field">
-              <label for="stravaTitleInput">Activity Title</label>
-              <input type="text" id="stravaTitleInput" placeholder="Morning Run" maxlength="40">
+              <label for="stravaTitleInput">Título</label>
+              <input type="text" id="stravaTitleInput" value="Morning Run" placeholder="Morning Run" maxlength="40">
             </div>
             <div class="strava-field">
-              <label for="stravaDistInput">Distance</label>
-              <input type="text" id="stravaDistInput" placeholder="10.52 km" maxlength="20">
+              <label for="stravaDistInput">Distancia</label>
+              <input type="text" id="stravaDistInput" value="10.52 km" placeholder="10.52 km" maxlength="20">
             </div>
             <div class="strava-field">
-              <label for="stravaPaceInput">Pace / Speed</label>
-              <input type="text" id="stravaPaceInput" placeholder="5:12 /km" maxlength="20">
+              <label for="stravaPaceInput">Ritmo (Pace)</label>
+              <input type="text" id="stravaPaceInput" value="5:12 /km" placeholder="5:12 /km" maxlength="20">
             </div>
             <div class="strava-field">
-              <label for="stravaTimeInput">Time / Elev</label>
-              <input type="text" id="stravaTimeInput" placeholder="54m 42s" maxlength="24">
+              <label for="stravaTimeInput">Tiempo / Desnivel</label>
+              <input type="text" id="stravaTimeInput" value="54m 42s" placeholder="54m 42s" maxlength="24">
             </div>
           </div>
 
-          <!-- Style, Position & Slide Target Selectors -->
+          <!-- Position, Scale & Slide Target Selectors -->
           <div class="strava-options-grid">
             <div class="control-group">
-              <label class="control-label">Overlay Style</label>
-              <div class="pill-selector" id="stravaStyleSelector">
-                <button class="pill-btn active" type="button" data-style="strava-classic">
-                  <span>Strava</span>
-                  <small>Orange bar</small>
+              <label class="control-label">Posición rápida (o arrástrala en la foto)</label>
+              <div class="pill-selector" id="stravaPosSelector">
+                <button class="pill-btn active" type="button" data-pos="bottom-left">
+                  <span>Abajo Izq</span>
                 </button>
-                <button class="pill-btn" type="button" data-style="glass-dark">
-                  <span>Dark Glass</span>
-                  <small>Badge</small>
+                <button class="pill-btn" type="button" data-pos="bottom-center">
+                  <span>Abajo Centro</span>
                 </button>
-                <button class="pill-btn" type="button" data-style="minimal-white">
-                  <span>Minimal</span>
-                  <small>Clean text</small>
+                <button class="pill-btn" type="button" data-pos="center">
+                  <span>Centro</span>
+                </button>
+                <button class="pill-btn" type="button" data-pos="top-left">
+                  <span>Arriba</span>
                 </button>
               </div>
             </div>
 
             <div class="control-group">
-              <label class="control-label">Position</label>
-              <div class="pill-selector" id="stravaPosSelector">
-                <button class="pill-btn active" type="button" data-pos="bottom-left">
-                  <span>Bottom L</span>
-                </button>
-                <button class="pill-btn" type="button" data-pos="bottom-center">
-                  <span>Bottom C</span>
-                </button>
-                <button class="pill-btn" type="button" data-pos="top-left">
-                  <span>Top L</span>
-                </button>
-                <button class="pill-btn" type="button" data-pos="center">
-                  <span>Center</span>
-                </button>
+              <label class="control-label">Tamaño de la actividad: <span id="stravaScaleLabel">100%</span></label>
+              <div class="scale-slider-wrap">
+                <input type="range" id="stravaScaleInput" min="60" max="160" value="100" step="5" class="scale-slider">
               </div>
             </div>
 
             <div class="control-group" id="stravaTargetGroup">
-              <label class="control-label">Show on Slide</label>
+              <label class="control-label">Mostrar en panel</label>
               <div class="pill-selector" id="stravaTargetSelector">
                 <button class="pill-btn active" type="button" data-target="first">
-                  <span>Slide 1</span>
+                  <span>Panel 1</span>
                 </button>
                 <button class="pill-btn" type="button" data-target="last">
-                  <span>Last Slide</span>
+                  <span>Último</span>
                 </button>
                 <button class="pill-btn" type="button" data-target="all">
-                  <span>Center Seam</span>
+                  <span>Entre paneles</span>
                 </button>
               </div>
             </div>
@@ -307,14 +339,16 @@
       <!-- Preview -->
       <div class="preview-area">
         <div class="preview-header">
-          <h2 class="preview-title">Live Crop & Split Preview</h2>
-          <div class="preview-badge" id="exportDimsBadge">1080 × 1350 px per panel</div>
+          <h2 class="preview-title">Vista previa en vivo (Arrastra la actividad o el recorte)</h2>
+          <div class="preview-badge" id="exportDimsBadge">1080 × 1920 px</div>
         </div>
 
-        <!-- Original with dynamic split lines and 4-way crop overlays -->
+        <!-- Original with live overlay canvas, dynamic split lines and 4-way crop overlays -->
         <div class="original-preview-wrap">
           <div class="original-preview" id="originalPreview">
             <img id="originalImg" alt="Original image">
+            <!-- Live interactive Strava overlay rendered right on the main preview -->
+            <canvas class="preview-overlay-canvas" id="previewOverlayCanvas"></canvas>
             <!-- Dynamic split lines injected by JS -->
             <div class="split-lines-container" id="splitLinesContainer" aria-hidden="true"></div>
 
@@ -338,7 +372,7 @@
             <div class="crop-overlay crop-overlay-left" id="cropLeft"></div>
             <div class="crop-overlay crop-overlay-right" id="cropRight"></div>
           </div>
-          <p class="preview-caption" id="previewCaption">Drag the purple handle to adjust which part of the image is kept.</p>
+          <p class="preview-caption" id="previewCaption">Puedes <strong>arrastrar tus métricas de Strava</strong> con el dedo a cualquier parte de la foto, o mover el botón morado para ajustar el recorte.</p>
         </div>
 
         <!-- Dynamic Split panels -->
@@ -353,18 +387,18 @@
             <polyline points="16 6 12 2 8 6"/>
             <line x1="12" y1="2" x2="12" y2="15"/>
           </svg>
-          <span id="shareBtnText">Save to iPhone Photos / Share</span>
+          <span id="shareBtnText">Guardar en Fotos (iPhone) / Compartir</span>
         </button>
         <button class="btn btn-secondary" id="zipBtn" type="button">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2h8l4 4v10a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M8 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></svg>
-          <span>Download ZIP</span>
+          <span>Descargar ZIP</span>
         </button>
       </div>
 
       <!-- Tip -->
       <div class="tip-card">
         <div class="tip-icon">💡</div>
-        <p><strong>iPhone Tip:</strong> Tap <em>Save to iPhone Photos / Share</em> and choose <strong>Save Images</strong> to send all panels directly to your Camera Roll in order, ready for Instagram.</p>
+        <p><strong>Tip para iPhone:</strong> En Strava toca <em>Compartir → Copiar</em> (o copia tus datos), luego toca el recuadro de pegado arriba y dale <strong>Pegar</strong>. También puedes mover las estadísticas directamente con tu dedo sobre la vista previa.</p>
       </div>
     </section>
   </main>
@@ -376,8 +410,8 @@
       <div class="modal-header">
         <img src="icon-192.png" alt="SplitGram Icon" class="modal-app-icon">
         <div>
-          <h3 id="iosModalTitle">Install SplitGram on iPhone</h3>
-          <p>Use SplitGram full-screen offline like a native iOS app</p>
+          <h3 id="iosModalTitle">Instalar SplitGram en iPhone</h3>
+          <p>Úsala a pantalla completa como app nativa en iOS</p>
         </div>
         <button class="modal-close" id="closeIosModal" type="button" aria-label="Close">&times;</button>
       </div>
@@ -385,23 +419,23 @@
         <li>
           <span class="step-badge">1</span>
           <div>
-            Open this page in <strong>Safari</strong> on your iPhone and tap the <strong>Share</strong> button
+            Abre esta página en <strong>Safari</strong> desde tu iPhone y toca el botón <strong>Compartir</strong>
             <span class="inline-icon" aria-hidden="true">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
             </span>
-            in the bottom bar.
+            en la barra inferior.
           </div>
         </li>
         <li>
           <span class="step-badge">2</span>
           <div>
-            Scroll down and tap <strong>Add to Home Screen</strong> (<em>Agregar a pantalla de inicio</em>).
+            Desliza hacia abajo y selecciona <strong>Agregar a pantalla de inicio</strong>.
           </div>
         </li>
         <li>
           <span class="step-badge">3</span>
           <div>
-            Tap <strong>Add</strong> in the top-right corner. SplitGram will launch full-screen and work offline!
+            Toca <strong>Agregar</strong> arriba a la derecha. ¡Listo!
           </div>
         </li>
       </ol>
@@ -411,7 +445,7 @@
   <!-- Toast notification -->
   <div class="toast" id="toast" role="status" aria-live="polite">
     <span class="toast-icon">✓</span>
-    <span class="toast-text" id="toastText">Done!</span>
+    <span class="toast-text" id="toastText">¡Listo!</span>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
